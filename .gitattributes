@@ -1,0 +1,4 @@
+# Vendored verbatim from gagarin-cloud/gg. Byte equality with the pinned tag is
+# what CI enforces, so this is generated, not edited. See skills/gagarin/SOURCE.json.
+skills/gagarin/SKILL.md linguist-generated=true
+skills/gagarin/SKILL.md -diff

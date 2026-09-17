@@ -1,0 +1,34 @@
+{
+  "name": "gagarin-cloud",
+  "owner": {
+    "name": "Gagarin Cloud",
+    "url": "https://gagarin.cloud"
+  },
+  "metadata": {
+    "description": "The official Gagarin Cloud plugin for Claude Code — the skill, the MCP server, commands and deploy agents."
+  },
+  "plugins": [
+    {
+      "name": "gagarin",
+      "displayName": "Gagarin Cloud",
+      "source": "./",
+      "version": "0.33.0",
+      "description": "Deploy and operate applications on Gagarin Cloud — ship a service from a Dockerfile, provision postgres, qdrant or valkey, wire what may reach what, and put it on the internet.",
+      "author": {
+        "name": "Gagarin Cloud",
+        "url": "https://gagarin.cloud"
+      },
+      "homepage": "https://gagarin.cloud",
+      "repository": "https://github.com/gagarin-cloud/claude-plugin",
+      "license": "MIT",
+      "category": "deployment",
+      "tags": [
+        "deploy",
+        "paas",
+        "cloud",
+        "docker",
+        "mcp"
+      ]
+    }
+  ]
+}

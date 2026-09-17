@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gagarin": {
+      "type": "http",
+      "url": "https://mcp.gagarin.cloud/mcp"
+    }
+  }
+}

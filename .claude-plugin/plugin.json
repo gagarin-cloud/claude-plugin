@@ -1,0 +1,23 @@
+{
+  "name": "gagarin",
+  "displayName": "Gagarin Cloud",
+  "version": "0.33.0",
+  "description": "Deploy and operate applications on Gagarin Cloud — ship a service from a Dockerfile, provision postgres, qdrant or valkey, wire what may reach what, and put it on the internet.",
+  "author": {
+    "name": "Gagarin Cloud",
+    "url": "https://gagarin.cloud"
+  },
+  "homepage": "https://gagarin.cloud",
+  "repository": "https://github.com/gagarin-cloud/claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "deploy",
+    "paas",
+    "cloud",
+    "docker",
+    "postgres",
+    "devops",
+    "hosting",
+    "mcp"
+  ]
+}
