@@ -1,4 +1,3 @@
-# Vendored verbatim from gagarin-cloud/gg. Byte equality with the pinned tag is
-# what CI enforces, so this is generated, not edited. See skills/gagarin/SOURCE.json.
-skills/gagarin/SKILL.md linguist-generated=true
+# The skill is prose, and a whole-file diff of 1500 lines is noise in a review
+# that is usually a paragraph. Ask for it explicitly when you want it.
 skills/gagarin/SKILL.md -diff

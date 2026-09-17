@@ -46,30 +46,37 @@ publishes checksums. There is deliberately no `curl | bash`.
 ## Not using Claude Code?
 
 The skill is an [Agent Skills](https://agentskills.io) skill, which Cursor,
-Codex, Copilot, Cline, Windsurf, Goose, opencode, Zed and others read. Install it
-for any of them with the CLI:
+Codex, Copilot, Cline, Windsurf, Goose, opencode, Zed and about seventy others
+read. Install it into any of them:
 
 ```
-gg skill install --agent agentskills   # ~/.agents/skills, read by most clients
-gg skill install --agent all           # every harness gg knows by name
-gg skill install -i                    # pick from a checklist
+npx skills add gagarin-cloud/claude-plugin -g
 ```
 
-Or point any MCP client at `https://mcp.gagarin.cloud/mcp`.
+`-g` installs for your user; drop it to add the skill to one project instead.
+`npx skills update` refreshes it later. Or copy `skills/gagarin/` to
+`~/.agents/skills/gagarin/` yourself — that is all the installer does.
 
-## Vendored files
+Or point any MCP client at `https://mcp.gagarin.cloud/mcp` and install nothing.
 
-**`skills/gagarin/SKILL.md` is generated. Do not edit it here.** It is copied
-byte-for-byte from [`gagarin-cloud/gg`](https://github.com/gagarin-cloud/gg) at
-the tag recorded in `skills/gagarin/SOURCE.json`, and CI fails if the two
-disagree. The skill lives in the CLI's repository so that it can never describe
-a flag the CLI does not have — change it there, cut a gg release, and
-`.github/workflows/sync-skill.yml` opens a pull request here.
+## The skill lives here
 
-Versions are `<gg-major>.<gg-minor>.<plugin-counter>`: `0.33.x` is the skill from
-gg 0.33, and the patch moves when the plugin changes on its own.
-`scripts/bump-version.sh` is the only thing that applies those rules.
+`skills/gagarin/SKILL.md` is the source of truth and is edited here. It used to
+ship inside the `gg` binary, on the reasoning that co-location stopped it
+describing a flag the CLI did not have. It did not really: shipping together is
+not the same as agreeing. So `gg` no longer carries it, and CI checks the thing
+that was actually wanted — `scripts/check-skill-against-gg.sh` installs the
+latest released `gg`, reads its command tree, and fails if the skill names a
+command, subcommand or flag that does not exist. It runs on every change and
+once a day, because the skill can go stale without anyone touching this repo.
+
+The consequence to keep in mind: **the skill can now be newer than someone's
+`gg`.** It says which version it assumes, and tells an agent to check
+`gg version` before concluding a command does not exist.
+
+`scripts/bump-version.sh [major|minor|patch]` moves the version in both
+manifests, which is what makes Claude Code re-install for people who have it.
 
 ## License
 
-MIT. The skill is MIT from `gagarin-cloud/gg`, under the same terms.
+MIT.

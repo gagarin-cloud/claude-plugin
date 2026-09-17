@@ -1,69 +1,35 @@
 #!/usr/bin/env bash
-# The plugin's version rules, in the one place that applies them.
+# Bump the plugin's version in both manifests, which is what makes Claude Code
+# re-install it for everyone who has it.
 #
-# Scheme: <gg-major>.<gg-minor>.<plugin-counter>. The major and minor track the
-# gg release whose skill is vendored, so "0.33.x" reads as "the skill from gg
-# 0.33"; the patch is ours to move when the plugin changes and gg has not.
-#
-# Mirroring gg exactly does not work: gg cuts patch releases, so a plugin-only
-# change would have no version to move to, and Claude Code only re-installs when
-# the version changes. The exact gg tag is never inferred from this number —
-# skills/gagarin/SOURCE.json is authoritative for that.
+# Plain semver, tracking nothing. The version used to encode the gg release the
+# skill was vendored from, back when it was a copy; the skill lives here now, so
+# there is nothing to track and the number is simply ours.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 PLUGIN=.claude-plugin/plugin.json
 MARKET=.claude-plugin/marketplace.json
-SOURCE=skills/gagarin/SOURCE.json
 
-gg_ref=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --gg) gg_ref="$2"; shift 2 ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
-    *) echo "unknown argument: $1" >&2; exit 2 ;;
-  esac
-done
+part=patch
+[ $# -gt 0 ] && part=$1
+case "$part" in
+  major|minor|patch) ;;
+  -h|--help) sed -n '2,8p' "$0"; echo; echo "usage: $0 [major|minor|patch]"; exit 0 ;;
+  *) echo "usage: $0 [major|minor|patch]" >&2; exit 2 ;;
+esac
 
-# Default to whatever the pin says, so a plugin-only bump needs no arguments.
-[ -n "$gg_ref" ] || gg_ref=$(jq -r .ref "$SOURCE")
-gg_version=${gg_ref#v}
-
-gg_major_minor=${gg_version%.*}
 current=$(jq -r .version "$PLUGIN")
-current_major_minor=${current%.*}
-current_patch=${current##*.}
+IFS=. read -r ma mi pa <<< "$current"
 
-if [ "$gg_major_minor" = "$current_major_minor" ]; then
-  # Same gg minor: this is a plugin-only change, or a gg patch. Either way the
-  # counter moves so installed copies pick it up.
-  new="$gg_major_minor.$((current_patch + 1))"
-else
-  # gg moved to a new minor or major: reset the counter.
-  new="$gg_major_minor.0"
-fi
+case "$part" in
+  major) new="$((ma + 1)).0.0" ;;
+  minor) new="$ma.$((mi + 1)).0" ;;
+  patch) new="$ma.$mi.$((pa + 1))" ;;
+esac
 
-# Claude Code re-installs on a version *change*, and a decrease is at best
-# ambiguous to anything comparing them as semver. gg only moves forward, so a
-# lower number here means a force-moved tag or a mistyped --gg, and neither
-# should quietly ship a downgrade to everyone who has this installed.
-lowest=$(printf '%s\n%s\n' "$current" "$new" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)
-if [ "$new" != "$current" ] && [ "$lowest" = "$new" ]; then
-  echo "refusing to move the version backwards: $current -> $new (gg $gg_ref)" >&2
-  echo "the pin is ahead of the tag you asked for; vendor a newer gg, or set the" >&2
-  echo "version by hand if you really mean to roll back." >&2
-  exit 1
-fi
+tmp=$(mktemp); jq --arg v "$new" '.version = $v' "$PLUGIN" > "$tmp"; mv "$tmp" "$PLUGIN"
+tmp=$(mktemp); jq --arg v "$new" '(.plugins[] | select(.name=="gagarin") | .version) = $v' "$MARKET" > "$tmp"; mv "$tmp" "$MARKET"
 
-for f in "$PLUGIN" "$MARKET"; do
-  tmp=$(mktemp)
-  if [ "$f" = "$MARKET" ]; then
-    jq --arg v "$new" '(.plugins[] | select(.name=="gagarin") | .version) = $v' "$f" > "$tmp"
-  else
-    jq --arg v "$new" '.version = $v' "$f" > "$tmp"
-  fi
-  mv "$tmp" "$f"
-done
-
-echo "$current -> $new (gg $gg_ref)"
+echo "$current -> $new"

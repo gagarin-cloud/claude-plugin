@@ -39,7 +39,15 @@ approve. A new account starts with $5 on it.
 
 Once they say they have approved, run `gg login` again to collect it.
 
-## 4. Tell them what they have
+## 4. Check the skill is not ahead of the binary
+
+The skill ships in this plugin, not in `gg`, so the two update separately and it
+can describe a `gg` newer than theirs. Run `gg version` and compare it against
+the minimum the skill names in its "Installing gg" section. If theirs is older,
+say so and tell them to upgrade — the same way they installed it — rather than
+letting an agent meet a refusal later and conclude the command does not exist.
+
+## 5. Tell them what they have
 
 Briefly: `gg` drives everything, and the `gagarin` skill in this plugin
 documents it. If this session also has the gagarin MCP tools connected, mention

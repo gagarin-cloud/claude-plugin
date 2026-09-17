@@ -79,7 +79,6 @@ first; they are the parts that stop you getting it wrong.
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
 | `gg destroy P` or `P/NAME` | delete a project, a service or a resource (needs a human) |
 | `gg eject P -o file.yaml` | the Kubernetes manifests, so you can leave (external keys are placeholders; `--with-secrets` includes them) |
-| `gg skill install` | refresh this skill from the binary |
 | `gg version` | which gg this is |
 
 Three environment variables override the credential file, and exist for CI:
@@ -129,12 +128,12 @@ profile; do not edit their shell configuration yourself.
 needs `buildx`). Nothing else needs it. A machine with no docker can still
 deploy an image that is already in the registry, roll back, and read state.
 
-Once installed, run `gg skill install` to refresh this skill from the binary, so
-what you are reading matches the CLI you have. It installs for Claude Code by
-default; `--agent agentskills` writes to `~/.agents/skills`, which every client
-implementing the Agent Skills standard reads — prefer it to naming harnesses one
-by one. `--agent cursor,cline` and friends, `--agent all`, or `-i` for a
-checklist, cover the rest, and `--dir` takes an explicit path.
+This skill is not part of the binary. It lives in
+`gagarin-cloud/claude-plugin` and is installed separately — in Claude Code as a
+plugin, elsewhere with `npx skills add gagarin-cloud/claude-plugin -g`. So it can
+be newer than the `gg` you are holding: **if a command here is refused as
+unknown, check `gg version` and upgrade before concluding the command does not
+exist.** Everything documented here is present in gg v0.33.0 and later.
 
 ## If you cannot install gg: the MCP server
 

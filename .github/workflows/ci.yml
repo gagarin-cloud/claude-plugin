@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # The skill can go stale without anyone touching this repository: gg is
+    # where the commands change. Catch that within a day rather than on the
+    # next edit here.
+    - cron: "23 6 * * *"
 
 permissions:
   contents: read
@@ -22,90 +27,26 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           claude plugin validate .
 
-      - name: JSON is well-formed
-        run: |
-          set -euo pipefail
-          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json .mcp.json skills/gagarin/SOURCE.json; do
-            jq empty "$f" || { echo "invalid JSON: $f" >&2; exit 1; }
-          done
+      - name: Manifests and skill frontmatter
+        run: ./scripts/check.sh
 
-      - name: Manifest invariants
-        run: |
-          set -euo pipefail
-          pv=$(jq -r .version .claude-plugin/plugin.json)
-          mv=$(jq -r '.plugins[] | select(.name=="gagarin") | .version' .claude-plugin/marketplace.json)
-
-          # Strict semver, no prerelease or build metadata: Claude Code only
-          # re-installs when this changes, and anything exotic is a bet on how
-          # it compares two of them.
-          echo "$pv" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' \
-            || { echo "plugin.json version '$pv' is not strict semver" >&2; exit 1; }
-
-          # A marketplace entry that disagrees with the plugin it points at
-          # advertises a version nobody receives.
-          [ "$pv" = "$mv" ] \
-            || { echo "version mismatch: plugin.json=$pv marketplace.json=$mv" >&2; exit 1; }
-
-          # The version tracks the vendored gg release; see scripts/bump-version.sh.
-          gg=$(jq -r .ref skills/gagarin/SOURCE.json | sed 's/^v//')
-          [ "${pv%.*}" = "${gg%.*}" ] \
-            || { echo "plugin $pv does not track pinned gg v$gg (MAJOR.MINOR must match)" >&2; exit 1; }
-
-          # The endpoint is the one thing a user cannot override; assert it verbatim.
-          jq -e '.mcpServers.gagarin.url == "https://mcp.gagarin.cloud/mcp"' .mcp.json > /dev/null \
-            || { echo ".mcp.json does not point at the gagarin MCP endpoint" >&2; exit 1; }
-
-      - name: Skill frontmatter
-        run: |
-          set -euo pipefail
-          # The skill's name must match its directory or Claude Code skips it.
-          awk '/^---$/{n++; next} n==1' skills/gagarin/SKILL.md > /tmp/fm
-          grep -qx 'name: gagarin' /tmp/fm \
-            || { echo "SKILL.md frontmatter name must be 'gagarin'" >&2; exit 1; }
-          grep -qE '^description: .{40,}' /tmp/fm \
-            || { echo "SKILL.md needs a description of real length" >&2; exit 1; }
-
-  drift:
+  agrees-with-gg:
+    # The skill used to live inside the gg binary, which guaranteed the two
+    # shipped together and nothing more. This checks that they agree.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
-      - name: Vendored skill matches its pin
+      - name: Install the latest released gg
         run: |
           set -euo pipefail
-          want=$(jq -r .sha256 skills/gagarin/SOURCE.json)
-          have=$(sha256sum skills/gagarin/SKILL.md | cut -d' ' -f1)
-          if [ "$want" != "$have" ]; then
-            echo "::error file=skills/gagarin/SKILL.md::This file is vendored from gagarin-cloud/gg"
-            echo "::error::and must stay byte-identical to it. Change it in gg, cut a release,"
-            echo "::error::then let sync-skill.yml re-vendor it here."
-            exit 1
-          fi
+          go install github.com/gagarin-cloud/gg@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Pin matches upstream at that tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Every gg command the skill names is a real one
         run: |
-          set -euo pipefail
-          ref=$(jq -r .ref skills/gagarin/SOURCE.json)
-          gh api "repos/gagarin-cloud/gg/contents/skill/SKILL.md?ref=$ref" \
-            -H "Accept: application/vnd.github.raw" > /tmp/upstream.md
-          up=$(sha256sum /tmp/upstream.md | cut -d' ' -f1)
-          have=$(sha256sum skills/gagarin/SKILL.md | cut -d' ' -f1)
-          if [ "$up" != "$have" ]; then
-            echo "::error::vendored SKILL.md differs from gg $ref"
-            diff -u /tmp/upstream.md skills/gagarin/SKILL.md | head -80 || true
-            exit 1
-          fi
-
-      - name: Note if gg has moved on
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          pinned=$(jq -r .ref skills/gagarin/SOURCE.json)
-          latest=$(gh release view --repo gagarin-cloud/gg --json tagName -q .tagName)
-          # A notice, never a failure: an unrelated PR must not be blocked
-          # because gg happened to release this morning.
-          [ "$pinned" = "$latest" ] \
-            || echo "::notice::pinned gg $pinned, latest is $latest — sync-skill will open a PR"
+          gg version
+          ./scripts/check-skill-against-gg.sh

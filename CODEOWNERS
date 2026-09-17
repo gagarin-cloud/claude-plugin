@@ -1,3 +1,3 @@
-# The vendored skill comes from gagarin-cloud/gg and is not edited here.
-# A PR touching it wants a human who knows that.
+# The skill is the product, written for an agent. A change to it is a change to
+# what every agent believes about how to deploy.
 /skills/gagarin/   @sharpvik
