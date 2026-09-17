@@ -1,8 +1,8 @@
 {
   "repo": "gagarin-cloud/gg",
   "path": "skill/SKILL.md",
-  "ref": "v0.32.0",
-  "sha256": "478b6d50817454a8dfaabb6c1d084f619551d643bdf1ad4def24ad8bf19b45c3",
-  "vendored_at": "2026-09-17T23:07:38Z",
+  "ref": "v0.33.0",
+  "sha256": "6c63149ba8bfe902aa77d21c8654470e35670ba4a298d9843b93e1a81387a2f7",
+  "vendored_at": "2026-09-17T23:14:18Z",
   "generated_by": ".github/workflows/sync-skill.yml"
 }
