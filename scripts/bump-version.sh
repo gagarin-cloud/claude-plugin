@@ -44,6 +44,18 @@ else
   new="$gg_major_minor.0"
 fi
 
+# Claude Code re-installs on a version *change*, and a decrease is at best
+# ambiguous to anything comparing them as semver. gg only moves forward, so a
+# lower number here means a force-moved tag or a mistyped --gg, and neither
+# should quietly ship a downgrade to everyone who has this installed.
+lowest=$(printf '%s\n%s\n' "$current" "$new" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)
+if [ "$new" != "$current" ] && [ "$lowest" = "$new" ]; then
+  echo "refusing to move the version backwards: $current -> $new (gg $gg_ref)" >&2
+  echo "the pin is ahead of the tag you asked for; vendor a newer gg, or set the" >&2
+  echo "version by hand if you really mean to roll back." >&2
+  exit 1
+fi
+
 for f in "$PLUGIN" "$MARKET"; do
   tmp=$(mktemp)
   if [ "$f" = "$MARKET" ]; then
