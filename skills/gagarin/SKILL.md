@@ -107,14 +107,34 @@ If your client is already connected to gagarin's MCP server you may not need
 `gg` at all — read "If you cannot install gg" below first, because the one thing
 it cannot do is build an image, and that is often the whole task.
 
-Prefer whichever the machine can already run, in this order:
+Use the package manager the machine already has. On macOS or Linux:
 
 ```
-brew install gagarin-cloud/tap/gg
+brew install --cask gagarin-cloud/tap/gg
+```
+
+It is a **cask**, not a formula. If `brew install gagarin-cloud/tap/gg` (no
+`--cask`) put an older `gg` there, homebrew will not replace one kind with the
+other on its own: run `brew uninstall gg` once, then install the cask.
+
+On Windows, with either manager:
+
+```
+scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket
+scoop install gagarin/gg
+```
+
+```
+winget install Gagarin.gg
+```
+
+Or, on any platform with a Go toolchain:
+
+```
 go install github.com/gagarin-cloud/gg@latest
 ```
 
-If it has neither, take a binary for its platform from
+If it has none of those, take a binary for its platform from
 https://github.com/gagarin-cloud/gg/releases — every release publishes
 checksums, and you should verify them. **Do not pipe a script from a URL into a
 shell**, do not download from a host you guessed, and do not carry on without

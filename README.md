@@ -34,10 +34,24 @@ the internet has neither. So `gg` is the larger surface, and the way to get an
 image into the registry:
 
 ```
-brew install gagarin-cloud/tap/gg
+brew install --cask gagarin-cloud/tap/gg
 ```
 
-or `go install github.com/gagarin-cloud/gg@latest`, or a
+It is a cask. If you installed `gg` as a formula before that, `brew uninstall
+gg` once first — homebrew will not swap one for the other on its own.
+
+On Windows:
+
+```
+scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket
+scoop install gagarin/gg
+```
+
+```
+winget install Gagarin.gg
+```
+
+Or `go install github.com/gagarin-cloud/gg@latest`, or a
 [released binary](https://github.com/gagarin-cloud/gg/releases) — every release
 publishes checksums. There is deliberately no `curl | bash`.
 

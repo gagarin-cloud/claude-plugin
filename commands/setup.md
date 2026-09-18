@@ -1,6 +1,6 @@
 ---
 description: Get this machine ready to deploy on Gagarin Cloud — install the gg CLI if it is missing, then sign in.
-allowed-tools: Bash(gg *), Bash(command -v *), Bash(brew *), Bash(go install *), Bash(go env *)
+allowed-tools: Bash(gg *), Bash(command -v *), Bash(brew *), Bash(scoop *), Bash(winget *), Bash(go install *), Bash(go env *)
 ---
 
 Get the user ready to use Gagarin Cloud. Work through this in order and stop at
@@ -14,14 +14,23 @@ If it printed a version, skip to step 3.
 
 ## 2. Install it
 
-Prefer whichever the machine can already run, in this order:
+Use the package manager the machine already has:
 
-- `brew install gagarin-cloud/tap/gg`
-- `go install github.com/gagarin-cloud/gg@latest`
+- macOS or Linux: `brew install --cask gagarin-cloud/tap/gg`
+- Windows: `scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket`
+  then `scoop install gagarin/gg`, or `winget install Gagarin.gg`
+- any platform with a Go toolchain: `go install github.com/gagarin-cloud/gg@latest`
 
-If it has neither, point them at https://github.com/gagarin-cloud/gg/releases —
-every release publishes checksums and they should verify them. **Do not pipe a
-script from a URL into a shell**, and do not download from a host you guessed.
+Homebrew installs it as a **cask**, not a formula — `brew install
+gagarin-cloud/tap/gg` without `--cask` is the old path and will not be replaced
+by the cask on its own. If they already have a formula `gg` (`brew list gg`
+finds it and `brew list --cask gg` does not), tell them to `brew uninstall gg`
+once and then install the cask.
+
+If it has none of those, point them at
+https://github.com/gagarin-cloud/gg/releases — every release publishes checksums
+and they should verify them. **Do not pipe a script from a URL into a shell**,
+and do not download from a host you guessed.
 
 If `go install` succeeds but the shell still cannot find `gg`, its bin directory
 (`go env GOPATH`/bin) is not on `PATH`. Say so and let them fix their profile;
@@ -44,8 +53,10 @@ Once they say they have approved, run `gg login` again to collect it.
 The skill ships in this plugin, not in `gg`, so the two update separately and it
 can describe a `gg` newer than theirs. Run `gg version` and compare it against
 the minimum the skill names in its "Installing gg" section. If theirs is older,
-say so and tell them to upgrade — the same way they installed it — rather than
-letting an agent meet a refusal later and conclude the command does not exist.
+say so and tell them to upgrade the way they installed it (`brew upgrade --cask
+gagarin-cloud/tap/gg`, `scoop update gg`, `winget upgrade Gagarin.gg`, or
+`go install ...@latest`) rather than letting an agent meet a refusal later and
+conclude the command does not exist.
 
 ## 5. Tell them what they have
 
