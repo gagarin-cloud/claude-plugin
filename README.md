@@ -18,9 +18,11 @@ That gives you four things:
 - **The skill** — the whole product, written for an agent: the model, every
   command, every error code, and the mistakes worth not making. It is the same
   file that ships inside the `gg` binary, so it cannot disagree with the CLI.
-- **The MCP server** at `https://mcp.gagarin.cloud/mcp` — 35 tools over the
-  gagarin API. You sign in with GitHub or Google when Claude Code asks; nothing
-  is installed and no token passes through the agent.
+- **The MCP server** at `https://mcp.gagarin.cloud/mcp` — the gagarin API as
+  tools, and the project's **memory**: the durable facts an agent keeps about a
+  codebase so the next session does not rediscover them, reachable only here.
+  You sign in with GitHub or Google when Claude Code asks; nothing is installed
+  and no token passes through the agent.
 - **Commands** — `/gagarin:setup`, `/gagarin:status`, `/gagarin:ship`.
 - **Subagents** — `gagarin-deploy` takes a repository to a working HTTPS URL;
   `gagarin-ci` wires a pipeline to deploy on push.

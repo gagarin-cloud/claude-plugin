@@ -12,7 +12,7 @@
       "name": "gagarin",
       "displayName": "Gagarin Cloud",
       "source": "./",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "description": "Deploy and operate applications on Gagarin Cloud — ship a service from a Dockerfile, provision postgres, qdrant or valkey, wire what may reach what, and put it on the internet.",
       "author": {
         "name": "Gagarin Cloud",

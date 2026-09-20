@@ -17,7 +17,11 @@ Read it. What follows is the order of work and the rules you must not break.
 2. **Find out what CI they use.** Look for `.github/workflows/`, `.gitlab-ci.yml`,
    `.buildkite/`, `cloudbuild.yaml`. Ask if it is ambiguous. Do not assume GitHub.
 3. **Confirm the project and service names** and which branch should deploy.
-   Read `gg status` or `gg projects` rather than guessing.
+   Read `.gagarin.json` at the repository root first — the note of which
+   project this is, if a deploy left one — then `gg status` or `gg projects`
+   rather than guessing. If the two disagree, the API is right. Do not write
+   the note here if it is absent: that is the deploy's job, and there may be
+   no project yet.
 4. **Mint a credential**, named for where it will live:
    `gg creds create --name "github actions: <owner>/<repo>"`.
 5. **Put it straight into the secret store** — see the rule below.

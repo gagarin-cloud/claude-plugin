@@ -1,13 +1,15 @@
 ---
 name: gagarin
-description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, and tear things down. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
+description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
 ---
 
 # Deploying with gagarin
 
 Gagarin runs your services. You drive it with the `gg` CLI, a thin wrapper over
 the gagarin API. There is exactly one way to change anything: call the API.
-There is no manifest file, no config file, and nothing to commit.
+There is no manifest file and no config file. The one file you will commit is
+a note of which project the repository is, and it changes nothing — see "Which
+project this repository is".
 
 Everything below is the whole product. Read "The ten rules" and the command map
 first; they are the parts that stop you getting it wrong.
@@ -96,10 +98,86 @@ once, and each has a different next step:
 | `[unauthorized]`, or it says there are no credentials | installed, no access | see "Getting access" |
 | it names an account | ready | carry on; `gg projects` says what already exists |
 
-Then `gg projects` before assuming a project exists or that you may write to it.
-A `viewer` role means every deploy will be refused, and that is worth knowing
-before the attempt rather than after. Project names are unique only within one
-account, so two rows can share a name — the id column tells them apart.
+Then read `.gagarin.json` at the repository root, if there is one — it says
+which project this repository already is — and `gg projects` before assuming a
+project exists or that you may write to it. A `viewer` role means every deploy
+will be refused, and that is worth knowing before the attempt rather than
+after. Project names are unique only within one account, so two rows can share
+a name — the id column tells them apart.
+
+## Which project this repository is: `.gagarin.json`
+
+Gagarin infers nothing from the directory you stand in, and gg stopped guessing
+the project from the directory's name on purpose: that made a command whose
+target was invisible in the command. So the repository carries a note instead,
+at its root, and you are the one who writes it:
+
+```json
+{ "project": { "id": "3cnciet6", "name": "shop" } }
+```
+
+Write it once you have created the project or settled on an existing one.
+Five rules, each for a reason:
+
+- **It is a note for the next session, not configuration.** Nothing reads it —
+  not gg, not the MCP server, not the platform. You read it, and then you still
+  name the project in every command and every tool call, so the target stays
+  visible in the command.
+- **Identity only, never desired state.** No services, ports, env or domains:
+  gagarin holds those, and a copy in the repository would be the stale one. If
+  the file disagrees with `gg projects`, the API is right — fix the file and
+  tell the user.
+- **Prefer the id in calls.** Names are unique only within an account, so a
+  project shared with the user can carry the same name as one of their own;
+  the id cannot collide. Everything that takes a project name takes its id.
+- **Commit it.** The id is already public in every hostname and image path,
+  and a teammate's agent needs it as much as your next session does.
+- **Read it first**, before `gg projects` and before asking. If it is absent
+  and the user named no project, `gg projects` before `gg init` — the project
+  may already exist.
+
+Where the id comes from: `gg init shop` prints `project shop created (id
+3cnciet6)`; `gg projects` prints a row per project — name, id, role; and the
+first line of `gg status shop` reads `project shop  (id 3cnciet6)`. None of
+them has a JSON flag; read the column.
+
+## Project memory
+
+Every project has a memory: small durable facts about the codebase that the
+next session would otherwise have to rediscover — an overview, the
+architecture, a decision and why it went that way, a convention, a gotcha, a
+howto, a reference, the state of a piece of work. It is reachable only through
+gagarin's MCP server (see "If you cannot install gg"); there is no `gg` command
+for it. Every memory tool takes the project, which is what `.gagarin.json` is
+for.
+
+| tool | when |
+|---|---|
+| `memory_briefing` | first, when starting work on a project — a primer packed to a token budget |
+| `memory_search` | before exploring the code for something a past session may already have found |
+| `memory_get` / `memory_related` | one memory in full; what it links to |
+| `remember` | one durable fact per memory, in English |
+| `memory_update` | edit, pin or archive one |
+| `memory_link` / `memory_unlink` | say that two are related, or that they are not |
+
+- **Brief yourself before you read the code, and search before you go
+  looking.** That is what it is for.
+- **Remember what a future session could not cheaply rediscover**: why a
+  decision went the way it did, a gotcha that cost time, where the deploy
+  differs from the obvious — which port, which Dockerfile quirk, which
+  variables the application insists on. Not what the repository already says,
+  not what is true only of this conversation, and **never a credential or a
+  secret** — not as a value, not in a tag. Title, body and source are
+  encrypted at rest with a key gagarin holds; tags, file paths and kind are
+  not.
+- **A `remember` refused with a list of near-duplicates** is telling you the
+  fact is already there. Update or link those; do not reword it to get past
+  the check.
+- Reading needs `viewer` on the project; writing needs `editor`. It is
+  included with every project at no charge, and capped per project.
+- **If the MCP server is not connected in this session, memory is simply
+  unavailable.** Carry on with `gg`; it is not an error, and nothing else
+  waits on it.
 
 ## Installing gg
 
@@ -363,6 +441,9 @@ gg status shop                                and only now tell the user a URL
 
 Notes on each step, in the order they bite:
 
+- **After `gg init`, write `.gagarin.json`** with the id it printed, and commit
+  it — see "Which project this repository is". Skip `gg init` when the note or
+  `gg projects` says the project already exists.
 - **A Dockerfile per service.** Gagarin deploys images, so a service without one
   cannot be deployed. Writing it is a normal part of this job. Do not set a
   platform or architecture: gagarin reports what its own nodes run, and gg builds
@@ -1539,4 +1620,5 @@ Not missing features. Do not attempt them and do not suggest workarounds:
   time (`gg registry copy` brings one in first)
 - expose Kubernetes, cloud provider or networking primitives
 - open the mail ports
-- infer a project from the current directory, or from anything else
+- infer a project from the current directory, or from anything else —
+  `.gagarin.json` included: you read that, gagarin never does
