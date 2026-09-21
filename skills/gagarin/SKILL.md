@@ -173,8 +173,10 @@ for.
 - **A `remember` refused with a list of near-duplicates** is telling you the
   fact is already there. Update or link those; do not reword it to get past
   the check.
-- Reading needs `viewer` on the project; writing needs `editor`. It is
-  included with every project at no charge, and capped per project.
+- Reading needs `viewer` on the project; writing needs `editor`. Memories in
+  use are billed at $0.10 per 1,000 a month — a few cents for most projects —
+  and capped per project. Reading is free, and archiving a memory that is no
+  longer true stops it being counted, so archive rather than leave it stale.
 - **If the MCP server is not connected in this session, memory is simply
   unavailable.** Carry on with `gg`; it is not an error, and nothing else
   waits on it.
