@@ -1018,9 +1018,11 @@ gg destroy  shop/db                        once everything reads from db2 — th
   outlive it by fourteen days and `--source db` still finds them.
 - `--backup <key>` from `gg resource backups` restores an exact point instead of
   the newest.
-- **The new resource is the backup's type**, and `gg resource restore` works it
-  out — the platform records the type with every backup, so there is nothing to
-  say even for a destroyed source. `gg resource backups shop/db` works on a
+- **One command does all of it**: the platform creates the new resource as the
+  backup's type, waits for it to start and fills it — the type is recorded with
+  every backup, so there is nothing to say even for a destroyed source. If it
+  gives up waiting for a slow start, run the same command again; it reuses the
+  name and only ever fills an empty resource. `gg resource backups shop/db` works on a
   destroyed resource too and shows what it left. Empty means no tables for
   postgres and no collections for qdrant.
 
@@ -1448,7 +1450,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `backup_unconfigured` | this gagarin runs without a backup bucket. Report it to the user |
 | `restore_target_not_empty` | a restore only fills a NEW resource. Create one rather than reusing a live name |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
-| `backup_type_mismatch` | the backup is another type's — a postgres dump into a qdrant or the reverse. `gg resource restore` picks the type itself, so this means a resource was created by hand — create it as the type `gg resource backups` lists for the source |
+| `backup_type_mismatch` | the backup is another type's — a postgres dump into a qdrant or the reverse. restore creates the right type itself, so this means the target name already existed as the other type — restore into a new name — create it as the type `gg resource backups` lists for the source |
 | `no_backups` | the nightly pass takes the first one; `gg resource backup` takes one now |
 | `backup_list_failed` / `backup_failed` / `restore_failed` | the resource must be running — check `gg status`, then retry once |
 
