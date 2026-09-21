@@ -14,6 +14,10 @@ subagent, which holds the whole procedure and its failure modes, passing along:
   sensible `project/service:port` from the repository and **confirms it with the
   user before creating anything**
 - that this is the working directory the user wants shipped
+- what `.gagarin.json` at the repository root says, if it exists — it names the
+  project a previous session used, and it is the default when `$1` names none.
+  gagarin-deploy still confirms the target with the user, and writes the note
+  after `gg init` if there was none.
 
 Before delegating, check two things yourself, because both are faster to catch
 here than three steps in:

@@ -19,8 +19,18 @@ cannot build or push an image. If it reports no credentials, stop and tell them
 to run `gg login`; relay the link and code exactly as printed and never handle a
 secret yourself.
 
-Then `gg projects`, before assuming a project exists or that you may write to
-it. A `viewer` role means every deploy will be refused.
+Then read `.gagarin.json` at the repository root, if there is one: it is the
+note a previous session left of which project this repository is (the skill's
+"Which project this repository is"). Then `gg projects`, before assuming a
+project exists or that you may write to it. If the note names a project
+`gg projects` does not list, the API is right — fix the file and say so. A
+`viewer` role means every deploy will be refused.
+
+If the project already exists and the gagarin MCP tools are connected, call
+`memory_briefing` for it before reading any code: a previous session may
+already have found the port, the Dockerfile quirk and the variables the app
+needs. Without the MCP tools, skip this — memory is unavailable there, and
+nothing else waits on it.
 
 ## The order
 
@@ -31,7 +41,11 @@ it. A `viewer` role means every deploy will be refused.
    project, `shop/web` a service inside it. Nothing is inferred from the
    directory. Confirm `project/service:port` with the user before creating
    anything.
-3. **`gg init <project>`** if it does not exist yet.
+3. **`gg init <project>`** if it does not exist yet. Either way, once the
+   project is settled, write `.gagarin.json` — `{ "project": { "id": "…",
+   "name": "…" } }`, with the id `gg init` printed or the one `gg projects`
+   shows — and commit it. Identity only: no ports, no services, no env.
+   Nothing reads it; you still name the project in every command.
 4. **Provision what it needs** — `gg resource add`. If a resource type exists,
    use it rather than running your own container.
 5. **Wire it** — `gg deps add <service> <resource>` opens the route *and* hands
@@ -65,3 +79,10 @@ Report the address, what is running on it, and what it is connected to. If
 anything is still converging, say what `gg status` last reported and which side
 it is waiting on — their DNS, or gagarin's certificate. Be specific about what
 you did not verify.
+
+If the MCP tools are connected, `remember` what the next session could not
+cheaply rediscover about this deploy: the port, a Dockerfile quirk, the names
+of the environment variables the application requires — never their values —
+and anything that differed from the obvious. One fact per memory, in English.
+Skip what the repository already says, and skip it entirely if the tools are
+not there.

@@ -1,16 +1,19 @@
 ---
 description: Show what is actually running in a Gagarin Cloud project — desired vs actual state, addresses, sizes and today's cost.
 argument-hint: [project]
-allowed-tools: Bash(gg status *), Bash(gg projects)
+allowed-tools: Read, Bash(gg status *), Bash(gg projects)
 ---
 
 Report the state of the user's Gagarin Cloud project.
 
 Project: $1
 
-If no project was named, run `gg projects` first and ask which one they mean —
-do not guess, and do not infer a project from the working directory. Gagarin
-names nothing after the directory you stand in.
+If no project was named, read `.gagarin.json` at the repository root: it is the
+note a previous session left of which project this repository is, and its `id`
+is the project to use. If there is no such file, run `gg projects` and ask
+which one they mean — do not guess, and do not infer a project from the
+working directory. Gagarin names nothing after the directory you stand in, and
+it does not read that file either; you do.
 
 Then run `gg status <project>`.
 
