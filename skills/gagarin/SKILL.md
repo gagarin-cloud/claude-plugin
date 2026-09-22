@@ -77,6 +77,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg status PROJECT` | desired vs actual, addresses, sizes, today's cost |
 | `gg logs P/SVC` | recent logs |
 | `gg history P/SVC` / `gg rollback P/SVC [--to N]` | every deploy; put one back |
+| `gg alerts on P` / `gg alerts test P` / `gg alerts P` / `gg alerts off P` | tell a phone when a service goes down, over ntfy |
 | `gg members P` / `gg share P EMAIL [--role viewer]` / `gg unshare P EMAIL` | who can reach it |
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
 | `gg destroy P` or `P/NAME` | delete a project, a service or a resource (needs a human) |
@@ -1314,6 +1315,29 @@ Prefer a rollback to a corrective deploy when something you just shipped is
 broken and you do not yet know why: one call, a state that provably ran, and the
 evidence left intact for afterwards.
 
+## Alerts
+
+A project can tell its owner's phone when something breaks. Alerts go to an
+[ntfy](https://ntfy.sh) topic — a free app with no account — and turning them
+on is the whole setup:
+
+```
+gg alerts on shop        # ntfy.sh, a topic nobody can guess; prints it
+gg alerts test shop      # once the human has subscribed, to see one arrive
+```
+
+Hand the human the topic `gg alerts on` prints; they install ntfy and subscribe
+to it. From then on they hear when a service has been down for three minutes,
+when a deploy will not start (the previous revision keeps serving), and when a
+container crashes and restarts — once when it starts and once when it ends,
+never on repeat. There are no rules to choose.
+
+`--server`, `--topic` and `--token` are for a human with their own ntfy server
+or a reserved topic. Leaving `--topic` off keeps the current one, so changing
+the server does not strand a phone that already subscribed. Offer alerts after
+a first deploy that a human cares about; do not turn them on without asking,
+because the notifications go to somebody.
+
 ## Sharing a project
 
 A project has exactly one **owner** — the account that pays for it — plus any
@@ -1480,6 +1504,15 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `recipient_project_limit` | their account is full; they destroy one, or write to support@mail.gagarin.cloud |
 | `no_offer` | nothing is pending. If it was accepted, the project is theirs and only they can offer it back |
 | `project_suspended` on a transfer | a project suspended in its own right cannot change hands. Only support can lift that |
+
+**Alerts**
+
+| code | what to do |
+|---|---|
+| `alerts_off` | `gg alerts test` before alerts are on. `gg alerts on P` first |
+| `invalid_server` | the server must be a public `https://` address. Leave `--server` off for ntfy.sh |
+| `invalid_topic` | letters, digits, `-` and `_`, up to 64. Leave `--topic` off and one is made up |
+| `alerts_undeliverable` | the ntfy server refused the push; its reason follows. Usually a wrong token or topic |
 
 **Services, images and deploys**
 
