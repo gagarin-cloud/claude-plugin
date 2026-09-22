@@ -40,10 +40,28 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install the latest released gg
+      # A pull request whose gg half is still a pull request — a new command
+      # documented here while it waits for review there — is checked against
+      # gg's branch of the same name, because the release does not have the
+      # command yet and failing on that says nothing about whether the two
+      # halves agree. Pushes to main and the daily run always check the
+      # release, so a skill merged ahead of its gg release still goes red on
+      # main until gg ships it. The branch is resolved to a commit because Go
+      # refuses a branch name with a slash in it as a version.
+      - name: Install gg — the paired branch on a pull request, else the latest release
+        env:
+          BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          go install github.com/gagarin-cloud/gg@latest
+          ref=latest
+          if [ -n "${BRANCH}" ]; then
+            sha=$(git ls-remote https://github.com/gagarin-cloud/gg "refs/heads/${BRANCH}" | cut -f1)
+            if [ -n "${sha}" ]; then
+              ref="${sha}"
+              echo "::notice::checking against gg's ${BRANCH} branch (${sha}), not a release"
+            fi
+          fi
+          go install "github.com/gagarin-cloud/gg@${ref}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Every gg command the skill names is a real one
