@@ -994,9 +994,9 @@ gg resource backup  shop/db     take one now — do this before a risky migratio
 time and the nightly schedule keeps running regardless.
 
 **A restore creates a NEW resource — it never overwrites an existing one.** That
-is the platform's rule, not a convention: the engine refuses to restore into a
-database that already holds data, which is exactly why a restore needs no human
-approval and can be reached for at three in the morning.
+is the platform's rule, not a convention: the name you give must not exist yet,
+and the platform creates the resource itself, which is exactly why a restore
+needs no human approval and can be reached for at three in the morning.
 
 ```
 gg resource restore shop/db2 --source db   new resource, filled from db's newest dump
@@ -1018,13 +1018,17 @@ gg destroy  shop/db                        once everything reads from db2 — th
   outlive it by fourteen days and `--source db` still finds them.
 - `--backup <key>` from `gg resource backups` restores an exact point instead of
   the newest.
-- **One command does all of it**: the platform creates the new resource as the
-  backup's type, waits for it to start and fills it — the type is recorded with
-  every backup, so there is nothing to say even for a destroyed source. If it
-  gives up waiting for a slow start, run the same command again; it reuses the
-  name and only ever fills an empty resource. `gg resource backups shop/db` works on a
-  destroyed resource too and shows what it left. Empty means no tables for
-  postgres and no collections for qdrant.
+- **The platform does the restore, not the command.** It creates the new
+  resource as the backup's type — recorded with every backup, so there is
+  nothing to say even for a destroyed source — then starts it and pours the data
+  in on its own. `gg resource restore` waits and prints each step by default;
+  stopping it stops nothing. With `--no-wait` it returns at once, and `gg status`
+  shows the restore under the resource until it is done, or why it failed.
+  **Do not `deps add` anything to the new resource before it is done.**
+- A failed restore leaves a resource holding nothing worth keeping: destroy it
+  and restore again under a new name once the cause is fixed.
+- `gg resource backups shop/db` works on a destroyed resource too, and shows what
+  it left.
 
 ### Anything we do not have a type for
 
@@ -1448,11 +1452,11 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 |---|---|
 | `backup_unsupported` | only postgres and qdrant have backups. If the user needs durability, the data belongs in one of those |
 | `backup_unconfigured` | this gagarin runs without a backup bucket. Report it to the user |
-| `restore_target_not_empty` | a restore only fills a NEW resource. Create one rather than reusing a live name |
+| `restore_name_taken` | a restore creates the resource it fills. Give it a name nothing has yet |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
-| `backup_type_mismatch` | the backup is another type's — a postgres dump into a qdrant or the reverse. restore creates the right type itself, so this means the target name already existed as the other type — restore into a new name — create it as the type `gg resource backups` lists for the source |
+| `backup_type_mismatch` | that key was written by no type that has backups — check it against `gg resource backups` |
 | `no_backups` | the nightly pass takes the first one; `gg resource backup` takes one now |
-| `backup_list_failed` / `backup_failed` / `restore_failed` | the resource must be running — check `gg status`, then retry once |
+| `backup_list_failed` / `backup_failed` | the resource must be running — check `gg status`, then retry once |
 
 **Addresses**
 
