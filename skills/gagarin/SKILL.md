@@ -71,7 +71,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg resource rotate P/NAME --set K=V` | change one value an external publishes, keeping the rest |
 | `gg rollback P/NAME` | put a previous revision back — a service's deploy, or an external's values |
 | `gg connect P/NAME` | that resource on this machine, for as long as the command runs |
-| `gg resource backup` / `backups` / `restore P/NEW --source OLD` | postgres recovery |
+| `gg resource backup` / `backups` / `restore P/NEW --source OLD` | postgres and qdrant recovery |
 | `gg deps add P/SVC NAME...` / `deps ls` / `deps rm` | what a service may reach, and whose credentials it holds (`rm` needs a human) |
 | `gg domain add P/SVC [DOMAIN]` / `domain ls P` / `domain rm` | addresses on the internet |
 | `gg status PROJECT` | desired vs actual, addresses, sizes, today's cost |
@@ -689,7 +689,7 @@ gg resource add shop/openai external --env-file .env.openai
 | type | what it is | storage | backups |
 |---|---|---|---|
 | `postgres` | PostgreSQL 17 | on a volume; survives restarts | nightly, kept 14 days |
-| `qdrant` | vector database, for retrieval | on a volume; survives restarts | none yet |
+| `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
 | `valkey` | in-memory store, redis protocol | **none — a restart loses everything** | none, by design |
 | `external` | a third-party API, run by nobody here | **none — it runs nothing at all** | nothing to back up |
 
@@ -1063,7 +1063,10 @@ to do in the third party's own console, and the user has to do it.
 
 ### Backup and recovery
 
-Postgres is dumped nightly and kept fourteen days. Nothing else has backups.
+Postgres and qdrant are backed up nightly and kept fourteen days — postgres as a
+`pg_dump`, qdrant as a tar of its per-collection snapshots with the aliases
+beside them. Valkey keeps nothing by design, and an external has nothing here to
+keep.
 
 ```
 gg resource backups shop/db     what is stored, newest last
@@ -1074,9 +1077,9 @@ gg resource backup  shop/db     take one now — do this before a risky migratio
 time and the nightly schedule keeps running regardless.
 
 **A restore creates a NEW resource — it never overwrites an existing one.** That
-is the platform's rule, not a convention: the engine refuses to restore into a
-database that already holds data, which is exactly why a restore needs no human
-approval and can be reached for at three in the morning.
+is the platform's rule, not a convention: the name you give must not exist yet,
+and the platform creates the resource itself, which is exactly why a restore
+needs no human approval and can be reached for at three in the morning.
 
 ```
 gg resource restore shop/db2 --source db   new resource, filled from db's newest dump
@@ -1098,6 +1101,17 @@ gg destroy  shop/db                        once everything reads from db2 — th
   outlive it by fourteen days and `--source db` still finds them.
 - `--backup <key>` from `gg resource backups` restores an exact point instead of
   the newest.
+- **The platform does the restore, not the command.** It creates the new
+  resource as the backup's type — recorded with every backup, so there is
+  nothing to say even for a destroyed source — then starts it and pours the data
+  in on its own. `gg resource restore` waits and prints each step by default;
+  stopping it stops nothing. With `--no-wait` it returns at once, and `gg status`
+  shows the restore under the resource until it is done, or why it failed.
+  **Do not `deps add` anything to the new resource before it is done.**
+- A failed restore leaves a resource holding nothing worth keeping: destroy it
+  and restore again under a new name once the cause is fixed.
+- `gg resource backups shop/db` works on a destroyed resource too, and shows what
+  it left.
 
 ### Anything we do not have a type for
 
@@ -1519,12 +1533,13 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 
 | code | what to do |
 |---|---|
-| `backup_unsupported` | only postgres has backups. If the user needs durability, the data belongs in postgres |
+| `backup_unsupported` | only postgres and qdrant have backups. If the user needs durability, the data belongs in one of those |
 | `backup_unconfigured` | this gagarin runs without a backup bucket. Report it to the user |
-| `restore_target_not_empty` | a restore only fills a NEW resource. Create one rather than reusing a live name |
+| `restore_name_taken` | a restore creates the resource it fills. Give it a name nothing has yet |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
+| `backup_type_mismatch` | that key was written by no type that has backups — check it against `gg resource backups` |
 | `no_backups` | the nightly pass takes the first one; `gg resource backup` takes one now |
-| `backup_list_failed` / `backup_failed` / `restore_failed` | the resource must be running — check `gg status`, then retry once |
+| `backup_list_failed` / `backup_failed` | the resource must be running — check `gg status`, then retry once |
 
 **Addresses**
 
