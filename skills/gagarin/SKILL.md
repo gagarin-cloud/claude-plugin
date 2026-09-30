@@ -1,6 +1,6 @@
 ---
 name: gagarin
-description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
+description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
 ---
 
 # Deploying with gagarin
@@ -40,7 +40,7 @@ first; they are the parts that stop you getting it wrong.
    domain, the volume and the size all survive a deploy that forgets to mention
    them. Env is the one thing you must restate every time.
 8. **If a resource type exists, use it** (`postgres`, `qdrant`, `valkey`,
-   `external`). If one does not, an ordinary service with a volume is the normal
+   `s3`, `external`). If one does not, an ordinary service with a volume is the normal
    path, not a workaround.
 9. **You can deploy; you cannot destroy.** Deleting anything, taking an address
    away, withdrawing a dependency with `gg deps rm`, and handing a project over
@@ -64,7 +64,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg build P/IMAGE[:TAG]` / `gg push P/IMAGE:TAG` / `gg deploy P/SVC:PORT IMAGE:TAG` | the same three steps apart, which is what CI wants |
 | `gg run P/JOB IMAGE:TAG` | run an image to completion as a job, wait, print what it wrote, exit with its code |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
-| `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey or external |
+| `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, s3 or external |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
 | `gg resource secrets P/NAME --names` | just the variable names it publishes, no values |
 | `gg resource rotate P/NAME` | new credentials, and everything holding them rolls |
@@ -81,7 +81,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg members P` / `gg share P EMAIL [--role viewer]` / `gg unshare P EMAIL` | who can reach it |
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
 | `gg destroy P` or `P/NAME` | delete a project, a service or a resource (needs a human) |
-| `gg eject P -o file.yaml` | the Kubernetes manifests, so you can leave (external keys are placeholders; `--with-secrets` includes them) |
+| `gg eject P -o file.yaml` | the Kubernetes manifests, so you can leave (external and s3 keys are placeholders; `--with-secrets` includes them) |
 | `gg version` | which gg this is |
 
 Three environment variables override the credential file, and exist for CI:
@@ -684,6 +684,7 @@ version to pass and no Dockerfile.
 gg resource add shop/db postgres --size m --storage 20
 gg resource add shop/vectors qdrant
 gg resource add shop/cache valkey
+gg resource add shop/files s3
 gg resource add shop/openai external --env-file .env.openai
 ```
 
@@ -692,6 +693,7 @@ gg resource add shop/openai external --env-file .env.openai
 | `postgres` | PostgreSQL 17 | on a volume; survives restarts | nightly, kept 14 days |
 | `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
 | `valkey` | in-memory store, redis protocol | **none — a restart loses everything** | none, by design |
+| `s3` | a private S3-compatible bucket, for files | **objects on durable storage; it runs nothing** | **none** |
 | `external` | a third-party API, run by nobody here | **none — it runs nothing at all** | nothing to back up |
 
 The types are named for what actually runs, not for the products they stand in
@@ -738,7 +740,8 @@ for — an honesty you can pass on when somebody asks.
 - **A managed resource cannot be rolled back**, because gagarin mints its
   credentials and there is no earlier value of the user's to go back to. An
   **external can** — its values are theirs — and `gg rollback P/NAME` is how a
-  config change is undone. See the external section below.
+  config change is undone. See the external section below. An `s3` cannot
+  either, for the same reason.
 
 ### Connecting one: the single call
 
@@ -772,6 +775,10 @@ own name, upper-cased with dashes as underscores, plus a suffix:
 | `<NAME>_PASSWORD` | ✅ | ✅ | — |
 | `<NAME>_API_KEY` | — | — | ✅ |
 | `<NAME>_DATABASE` | ✅ | — | — |
+
+An `s3` bucket publishes none of these. It publishes five of its own:
+`<NAME>_ENDPOINT`, `<NAME>_REGION`, `<NAME>_BUCKET`, `<NAME>_ACCESS_KEY_ID` and
+`<NAME>_SECRET_ACCESS_KEY` — see its section below.
 
 A postgres called `db` publishes `DB_URL`; one called `orders-db` publishes
 `ORDERS_DB_URL`; a valkey called `cache` publishes `CACHE_URL` and no
@@ -865,8 +872,9 @@ db is a postgres. The tunnel is up:
   6333 and 6334 at once. Each prefers its own number and quietly takes a free
   one when that is busy; `--port` pins the primary, and is refused rather than
   moved when the port is taken.
-- **An external is refused** (`not_tunnelable`): nothing runs, so there is
-  nothing to tunnel to. Its values are `gg resource secrets`.
+- **An external is refused** (`not_tunnelable`), and an s3 is refused by `gg`
+  itself ("publishes no port to tunnel to"): nothing runs, so there is nothing
+  to tunnel to. Their values are `gg resource secrets`.
 - **The resource must be running.** A stopped one refuses with
   `tunnel_unavailable`, and `gg status` says what it is waiting on.
 - The printed values are live credentials on a local port, and the same rule
@@ -1003,6 +1011,52 @@ oversights:
 - **Every dependent gets every key** in the bundle. Split by audience, not by
   topic: one resource per set of services that should hold the same things.
 
+### `s3`: a bucket for files
+
+User uploads, generated files, ML artifacts, static assets an app serves
+itself. gagarin's object storage, as a private S3-compatible bucket.
+
+```
+gg resource add shop/files s3
+gg deps add shop/web files
+```
+
+`web` now holds `FILES_ENDPOINT`, `FILES_REGION`, `FILES_BUCKET`,
+`FILES_ACCESS_KEY_ID` and `FILES_SECRET_ACCESS_KEY` (same prefix rule as every
+other type). There is **no `_URL`, `_HOST`, `_PORT`, `_USER` or `_PASSWORD`** —
+an S3 client takes these five settings separately. Any S3 client library works
+(boto3, the AWS SDKs, …); **pass the endpoint and the region explicitly**, or it
+will look for AWS. The endpoint is `https`.
+
+- **`--size`, `--storage` and `--env` are all refused** (`no_size`,
+  `no_storage`, `no_env`). A gagarin without object storage configured answers
+  `object_storage_unavailable` (HTTP 501); report it.
+- **It runs nothing.** No pod, no port, no volume, no logs. gagarin mints its
+  key, like postgres — unlike an external.
+- **Only the bucket's own key can read or write it.** Another project's key
+  cannot, and nothing a service does can make an object public: there are no
+  public buckets. A service that must serve files to browsers proxies them or
+  hands out its own signed links.
+- **Declaring it does NOT restrict the network.** It is reached over the
+  internet, not inside the cluster, so — exactly like an external — the
+  declaration hands over the key and nothing more. It is not a firewall. `gg
+  status` marks these edges `◇`.
+- **There are no backups.** Objects sit on durable storage but gagarin takes no
+  copy, and `gg resource backup` answers `backup_unsupported`. If losing the
+  data would matter, keep a copy somewhere else.
+- **`gg connect` does not work**: it publishes no port, and `gg` says so. Read
+  the values with `gg resource secrets`.
+- **It costs $0.03 per GB-month** of what it actually holds, measured hourly,
+  rounded up to whole GB and prorated per minute. There is no running charge,
+  and requests and traffic are not billed.
+- **Not deployable, not rollback-able, no domain.** `gg deploy` over it is
+  `not_a_service`, as is `gg rollback` (gagarin mints its key).
+- **Destroying it** needs the human's email approval, is refused while anything
+  still declares it, cuts the key off at once, and permanently deletes every
+  object shortly after.
+
+A bucket the user already has somewhere else is still an `external`.
+
 ### Rotating credentials
 
 ```
@@ -1016,7 +1070,7 @@ command names what it rolled. Nothing but variable *names* is printed;
 `gg resource secrets` reads the values.
 
 **Who supplies the new value is the only difference between the types.** For
-`postgres`, `qdrant` and `valkey`, gagarin mints one and `--env` is refused — a
+`postgres`, `qdrant`, `valkey` and `s3`, gagarin mints one and `--env` is refused — a
 password you chose is one the running server has never heard of. For an
 `external` the values are yours, so one of `--set`, `--unset`, `--env-file` or
 `--env` is required.
@@ -1051,7 +1105,12 @@ reported as a success is how somebody believes a secret is gone when it is not.
 | `postgres` | the running server is told immediately | none |
 | `qdrant` | the pod is replaced; the key is read at startup | a few seconds away; **the data survives** |
 | `valkey` | the pod is replaced; the password is read at startup | **the cache is emptied** |
+| `s3` | a new key is issued and recorded, dependents restart, then the old key is revoked at once | **not zero-downtime:** their S3 calls fail for the seconds the restart takes; **the objects survive** |
 | `external` | nothing of ours runs, so nothing of ours restarts | none |
+
+**An s3 rotation can revoke late.** If the answer says `old_credential_revoked:
+false`, the old key still works: tell the user, and run the rotation again — it
+revokes the leftover key first.
 
 **If it fails, nothing changed.** The old credential is still in use and the
 command is safe to run again — say that, rather than leaving the user wondering
@@ -1066,8 +1125,9 @@ to do in the third party's own console, and the user has to do it.
 
 Postgres and qdrant are backed up nightly and kept fourteen days — postgres as a
 `pg_dump`, qdrant as a tar of its per-collection snapshots with the aliases
-beside them. Valkey keeps nothing by design, and an external has nothing here to
-keep.
+beside them. Valkey keeps nothing by design, an external has nothing here to
+keep, and an s3 bucket is not copied: its objects are on durable storage, but
+`gg resource backup` answers `backup_unsupported`.
 
 ```
 gg resource backups shop/db     what is stored, newest last
@@ -1220,8 +1280,10 @@ project shop  (id 7f3a9c2e)
   ●  api      service   m     1/1    4000  db, openai◆  api:1757030112
   ●  db       postgres  m     1/1    5432  —            postgres:17
   ◆  openai   external  —     —      —     —            —
+  ◇  files    s3        —     —      —     —            —
 
   ● running   ◆ external (runs nothing; declaring it grants its variables, not egress)
+  ◇ bucket (runs nothing; reached over the internet, so declaring it grants its key, not a network path)
   $0.412 today so far
 ```
 
@@ -1249,6 +1311,7 @@ What to read, in the order it matters:
      stopped calling this a rollout in progress. Waiting will not fix it.
    - `◌` **stopped** — the project is suspended. See the `!` line.
    - `◆` **external** — runs nothing, so it has no state to be in.
+   - `◇` **bucket** — an `s3`: runs nothing either, and its edges read `files◇`.
    - `✓` **done** — a job whose latest run finished with exit code 0. A job
      whose run failed is `○`, and the line under the table gives its exit code.
 3. **`◐` and `○` print the cluster's own explanation below the table.** Read it
@@ -1530,7 +1593,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `invalid_size` | sizes are `s`, `m`, `l`; the message names the account's cap |
 | `no_such_revision` | `gg history` lists the ones it had |
 | `nothing_to_roll_back_to` | deployed only once. Not a bad call, just nothing to do |
-| `not_a_service` | that name is a resource or a job — you tried to deploy a service over it, give it an address, or roll back a managed resource whose credentials gagarin mints (an external can be rolled back) |
+| `not_a_service` | that name is a resource or a job — you tried to deploy a service over it, give it an address, or roll back a managed resource whose credentials gagarin mints, s3 included (an external can be rolled back) |
 | `not_a_resource` | that name is a service. `gg status` shows which is which |
 
 **The graph**
@@ -1546,17 +1609,18 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | code | what to do |
 |---|---|
 | `no_such_resource` | `gg status <project>` lists what it has |
-| `unknown_resource_type` | `postgres`, `qdrant`, `valkey` or `external` |
+| `unknown_resource_type` | `postgres`, `qdrant`, `valkey`, `s3` or `external` |
 | `wrong_resource_type` | another type already holds that name. Destroy it — which throws its data away — or pick another name |
 | `invalid_storage` | 1 to 100 GB |
-| `no_storage` | this type has no volume: drop `--storage` |
-| `no_size` | an external runs nothing: drop `--size` |
+| `no_storage` | this type has no volume (valkey, s3): drop `--storage` |
+| `no_size` | an external or an s3 runs nothing: drop `--size` |
 | `invalid_env` | write `API_KEY`, not `OPENAI_API_KEY` — the prefix is the resource's name |
 | `already_exists` | restating an external. `gg resource rotate` is how values change |
 | `env_required` | an external's values are the user's; pass `--set K=V` for one of them, `--env-file` for all |
 | `conflicting_env` | `--env`/`--env-file` replace the bundle and `--set`/`--unset` amend it: use one or the other |
 | `no_such_key` | that external does not publish the key named in `--unset`. `gg resource secrets` lists what it does — and the name goes in without the resource's prefix |
-| `no_env` | this type mints its own credentials, so there is nothing to pass or amend; `gg resource secrets` reads them |
+| `no_env` | this type mints its own credentials (s3 included), so there is nothing to pass or amend; `gg resource secrets` reads them |
+| `object_storage_unavailable` | HTTP 501: this gagarin has no object storage configured, so no `s3`. Report it to the user |
 | `rotate_failed` | **nothing changed** — the old credential still works. Check `gg status` for a resource that is not running, then retry |
 | `cannot_rotate` | no credentials recorded to replace; worth reporting as a bug |
 | `not_tunnelable` | an external runs nothing, so there is nothing to tunnel to; its values are `gg resource secrets` |
@@ -1566,7 +1630,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 
 | code | what to do |
 |---|---|
-| `backup_unsupported` | only postgres and qdrant have backups. If the user needs durability, the data belongs in one of those |
+| `backup_unsupported` | only postgres and qdrant have backups; an s3 bucket is on durable storage but never copied. If losing the data would matter, keep a copy elsewhere |
 | `backup_unconfigured` | this gagarin runs without a backup bucket. Report it to the user |
 | `restore_name_taken` | a restore creates the resource it fills. Give it a name nothing has yet |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
@@ -1644,8 +1708,9 @@ Three things it deliberately does not contain, all explained in its own header:
 the **images**, which are still in gagarin's registry and have to be pulled and
 pushed somewhere the user controls; the **registry pull secret**, which is a
 live credential; and the values from any **external resource**, which are
-third-party keys somebody else issued — they come out as a placeholder naming
-the resource, and the header lists exactly which variables to fill in. Volume
+third-party keys somebody else issued, and an **s3 bucket's** keys, which like an
+external's work from anywhere — they come out as a `REPLACE-ME` placeholder
+naming the resource, and the header lists exactly which variables to fill in. Volume
 claims come back empty — data has to be taken out of the running service.
 
 A minted credential — a database password — *is* in the file, and the asymmetry
