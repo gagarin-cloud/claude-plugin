@@ -1,6 +1,6 @@
 ---
 name: gagarin
-description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
+description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
 ---
 
 # Deploying with gagarin
@@ -40,7 +40,7 @@ first; they are the parts that stop you getting it wrong.
    domain, the volume and the size all survive a deploy that forgets to mention
    them. Env is the one thing you must restate every time.
 8. **If a resource type exists, use it** (`postgres`, `qdrant`, `valkey`,
-   `s3`, `external`). If one does not, an ordinary service with a volume is the normal
+   `iggy`, `s3`, `external`). If one does not, an ordinary service with a volume is the normal
    path, not a workaround.
 9. **You can deploy; you cannot destroy.** Deleting anything, taking an address
    away, withdrawing a dependency with `gg deps rm`, and handing a project over
@@ -64,14 +64,14 @@ first; they are the parts that stop you getting it wrong.
 | `gg build P/IMAGE[:TAG]` / `gg push P/IMAGE:TAG` / `gg deploy P/SVC:PORT IMAGE:TAG` | the same three steps apart, which is what CI wants |
 | `gg run P/JOB IMAGE:TAG` | run an image to completion as a job, wait, print what it wrote, exit with its code |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
-| `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, s3 or external |
+| `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, s3 or external |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
 | `gg resource secrets P/NAME --names` | just the variable names it publishes, no values |
 | `gg resource rotate P/NAME` | new credentials, and everything holding them rolls |
 | `gg resource rotate P/NAME --set K=V` | change one value an external publishes, keeping the rest |
 | `gg rollback P/NAME` | put a previous revision back — a service's deploy, or an external's values |
 | `gg connect P/NAME` | that resource on this machine, for as long as the command runs |
-| `gg resource backup` / `backups` / `restore P/NEW --source OLD` | postgres and qdrant recovery |
+| `gg resource backup` / `backups` / `restore P/NEW --source OLD` | postgres, qdrant and iggy recovery |
 | `gg deps add P/SVC NAME...` / `deps ls` / `deps rm` | what a service may reach, and whose credentials it holds (`rm` needs a human) |
 | `gg domain add P/SVC [DOMAIN]` / `domain ls P` / `domain rm` | addresses on the internet |
 | `gg status PROJECT` | desired vs actual, addresses, sizes, today's cost |
@@ -684,6 +684,7 @@ version to pass and no Dockerfile.
 gg resource add shop/db postgres --size m --storage 20
 gg resource add shop/vectors qdrant
 gg resource add shop/cache valkey
+gg resource add shop/events iggy
 gg resource add shop/files s3
 gg resource add shop/openai external --env-file .env.openai
 ```
@@ -692,6 +693,7 @@ gg resource add shop/openai external --env-file .env.openai
 |---|---|---|---|
 | `postgres` | PostgreSQL 17 | on a volume; survives restarts | nightly, kept 14 days |
 | `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
+| `iggy` | Apache Iggy, a persistent message-streaming log | on a volume (10 GB unless `--storage`); survives restarts | nightly, kept 14 days — see the durability caveat |
 | `valkey` | in-memory store, redis protocol | **none — a restart loses everything** | none, by design |
 | `s3` | a private S3-compatible bucket, for files | **objects on durable storage; it runs nothing** | **none** |
 | `external` | a third-party API, run by nobody here | **none — it runs nothing at all** | nothing to back up |
@@ -719,6 +721,23 @@ for — an honesty you can pass on when somebody asks.
   it promised MongoDB compatibility and did not keep the promise past the simple
   cases. There is no alias and no migration path. If a user names it, say it was
   removed and offer the service-with-a-volume route.
+- **`iggy` is Apache Iggy**, Apache-licensed: a persistent message-streaming
+  log, what an application publishes events to and consumes from in order. One
+  pod, one volume (10 GB by default; `--storage` is accepted), private like every
+  resource, so it is reached only by services that declare it with `deps`.
+  - **It answers on two ports.** `<NAME>_PORT` is 8090, the TCP binary protocol
+    every Iggy SDK speaks, and `<NAME>_HTTP_PORT` is 3000, for REST. QUIC and
+    WebSocket are off.
+  - **The credential is in the URL.** `<NAME>_URL` is the connection string the
+    SDKs read, `iggy://root:<password>@events:8090` for a resource called
+    `events`; `_USER` is always `root`.
+  - **A backup can miss recent messages unless the topic is persisted.** The
+    backup is taken while the server keeps running, so only topics created with
+    `--durability persisted` are guaranteed complete. A topic with the default
+    durability may be missing its newest messages, the ones not yet flushed to
+    disk. Have producers create topics with `--durability persisted` for
+    anything the user would want back from a backup, and say so when you set one
+    up.
 - **`valkey` is a cache, not a database.** `--storage` is refused (`no_storage`)
   rather than quietly ignored, and everything in it is gone when the pod restarts
   — which happens on a node drain, not only when somebody asks. Do not put a
@@ -765,16 +784,17 @@ Or declare it on the deploy, so the service never starts without them:
 **The variables are named after the resource, not the protocol** — the resource's
 own name, upper-cased with dashes as underscores, plus a suffix:
 
-| suffix | postgres | valkey | qdrant |
-|---|---|---|---|
-| `<NAME>_URL` | `postgres://…?sslmode=disable` | `redis://:pass@…` | `http://vectors:6333` |
-| `<NAME>_HOST` | ✅ | ✅ | ✅ |
-| `<NAME>_PORT` | 5432 | 6379 | 6333 |
-| `<NAME>_GRPC_PORT` | — | — | 6334 |
-| `<NAME>_USER` | ✅ | — | — |
-| `<NAME>_PASSWORD` | ✅ | ✅ | — |
-| `<NAME>_API_KEY` | — | — | ✅ |
-| `<NAME>_DATABASE` | ✅ | — | — |
+| suffix | postgres | valkey | qdrant | iggy |
+|---|---|---|---|---|
+| `<NAME>_URL` | `postgres://…?sslmode=disable` | `redis://:pass@…` | `http://vectors:6333` | `iggy://root:pass@events:8090` |
+| `<NAME>_HOST` | ✅ | ✅ | ✅ | ✅ |
+| `<NAME>_PORT` | 5432 | 6379 | 6333 | 8090 |
+| `<NAME>_GRPC_PORT` | — | — | 6334 | — |
+| `<NAME>_HTTP_PORT` | — | — | — | 3000 |
+| `<NAME>_USER` | ✅ | — | — | `root` |
+| `<NAME>_PASSWORD` | ✅ | ✅ | — | ✅ |
+| `<NAME>_API_KEY` | — | — | ✅ | — |
+| `<NAME>_DATABASE` | ✅ | — | — | — |
 
 An `s3` bucket publishes none of these. It publishes five of its own:
 `<NAME>_ENDPOINT`, `<NAME>_REGION`, `<NAME>_BUCKET`, `<NAME>_ACCESS_KEY_ID` and
@@ -869,7 +889,7 @@ db is a postgres. The tunnel is up:
   tunnel and survives any command exiting. Do not leave `gg connect` running
   as plumbing under an application.
 - **Every port the resource answers on gets a local end** — a qdrant tunnels
-  6333 and 6334 at once. Each prefers its own number and quietly takes a free
+  6333 and 6334 at once, and an iggy 8090 and 3000. Each prefers its own number and quietly takes a free
   one when that is busy; `--port` pins the primary, and is refused rather than
   moved when the port is taken.
 - **An external is refused** (`not_tunnelable`), and an s3 is refused by `gg`
@@ -1070,7 +1090,7 @@ command names what it rolled. Nothing but variable *names* is printed;
 `gg resource secrets` reads the values.
 
 **Who supplies the new value is the only difference between the types.** For
-`postgres`, `qdrant`, `valkey` and `s3`, gagarin mints one and `--env` is refused — a
+`postgres`, `qdrant`, `valkey`, `iggy` and `s3`, gagarin mints one and `--env` is refused — a
 password you chose is one the running server has never heard of. For an
 `external` the values are yours, so one of `--set`, `--unset`, `--env-file` or
 `--env` is required.
@@ -1104,6 +1124,7 @@ reported as a success is how somebody believes a secret is gone when it is not.
 |---|---|---|
 | `postgres` | the running server is told immediately | none |
 | `qdrant` | the pod is replaced; the key is read at startup | a few seconds away; **the data survives** |
+| `iggy` | the running server is told the new root password first and it is recorded, then the pod restarts and dependents roll | a few seconds away; **nothing stored is lost**, a graceful stop flushes |
 | `valkey` | the pod is replaced; the password is read at startup | **the cache is emptied** |
 | `s3` | a new key is issued and recorded, dependents restart, then the old key is revoked at once | **not zero-downtime:** their S3 calls fail for the seconds the restart takes; **the objects survive** |
 | `external` | nothing of ours runs, so nothing of ours restarts | none |
@@ -1123,9 +1144,14 @@ to do in the third party's own console, and the user has to do it.
 
 ### Backup and recovery
 
-Postgres and qdrant are backed up nightly and kept fourteen days — postgres as a
+Postgres, qdrant and iggy are backed up nightly and kept fourteen days — postgres as a
 `pg_dump`, qdrant as a tar of its per-collection snapshots with the aliases
-beside them. Valkey keeps nothing by design, an external has nothing here to
+beside them.
+
+**An iggy backup is taken while the server keeps running.** Only topics created
+with `--durability persisted` are guaranteed complete; a topic with the default
+durability may be missing its newest messages, the ones not yet flushed to disk.
+Recommend `--durability persisted` for anything the user would want back. Valkey keeps nothing by design, an external has nothing here to
 keep, and an s3 bucket is not copied: its objects are on durable storage, but
 `gg resource backup` answers `backup_unsupported`.
 
@@ -1609,7 +1635,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | code | what to do |
 |---|---|
 | `no_such_resource` | `gg status <project>` lists what it has |
-| `unknown_resource_type` | `postgres`, `qdrant`, `valkey`, `s3` or `external` |
+| `unknown_resource_type` | `postgres`, `qdrant`, `valkey`, `iggy`, `s3` or `external` |
 | `wrong_resource_type` | another type already holds that name. Destroy it — which throws its data away — or pick another name |
 | `invalid_storage` | 1 to 100 GB |
 | `no_storage` | this type has no volume (valkey, s3): drop `--storage` |
@@ -1630,7 +1656,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 
 | code | what to do |
 |---|---|
-| `backup_unsupported` | only postgres and qdrant have backups; an s3 bucket is on durable storage but never copied. If losing the data would matter, keep a copy elsewhere |
+| `backup_unsupported` | only postgres, qdrant and iggy have backups; an s3 bucket is on durable storage but never copied. If losing the data would matter, keep a copy elsewhere |
 | `backup_unconfigured` | this gagarin runs without a backup bucket. Report it to the user |
 | `restore_name_taken` | a restore creates the resource it fills. Give it a name nothing has yet |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
