@@ -65,6 +65,12 @@ nothing else waits on it.
 - **A deploy replaces the environment and nothing else.** Restate every variable
   every time. Dependencies, the domain, the volume and the size all survive a
   deploy that forgets to mention them; env does not.
+- **No secret goes in a deploy env.** A gagarin database's credentials arrive
+  with `gg deps add`; a third-party key (Stripe, OpenAI, SMTP, a webhook secret)
+  becomes an `external` resource, written to a file, never passed with `--env`.
+  If the application's `.env` holds secrets, move them into externals and deploy
+  the rest. Say which ones you moved, by name only. If you cannot tell whether a
+  variable is secret, treat it as one.
 - **A private service is default-denied.** Until the *caller* declares
   `gg deps add`, its calls are dropped — which hangs rather than failing fast.
   If something times out reaching something else, check the graph first.
