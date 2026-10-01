@@ -39,6 +39,10 @@ first; they are the parts that stop you getting it wrong.
 7. **A deploy replaces the environment and nothing else.** Dependencies, the
    domain, the volume and the size all survive a deploy that forgets to mention
    them. Env is the one thing you must restate every time.
+   **A credential never goes in a deploy env.** Env is for plain, single-service
+   config: a port, a log level, a sibling's URL. A database password arrives
+   with `gg deps add`; a third-party key is an `external` resource. See "What
+   does not go in env" below.
 8. **If a resource type exists, use it** (`postgres`, `qdrant`, `valkey`,
    `iggy`, `s3`, `external`). If one does not, an ordinary service with a volume is the normal
    path, not a workaround.
@@ -387,7 +391,7 @@ jobs:
         run: gg status acme
 ```
 
-Five things about that are load-bearing:
+Six things about that are load-bearing:
 
 - **`gg registry login` is not optional.** `gg build --push`, `gg push` and
   `gg registry copy` all shell out to docker, and docker has no idea what a
@@ -402,6 +406,12 @@ Five things about that are load-bearing:
 - **The deploy step is separate on purpose.** Publishing on every commit and
   releasing on some of them is the whole reason build, push and deploy are three
   verbs. A workflow that only ever wants all three can run `gg ship` instead.
+- **`.env.production` is committed, so it holds no secrets.** It is config:
+  ports, log levels, sibling URLs. The keys the service needs are `external`
+  resources, created once with `gg resource add` and wired with `gg deps add`;
+  they survive every deploy CI makes, and CI never holds them. If you are about
+  to put a credential in a CI secret so the workflow can pass it with `--env`,
+  make it an external instead.
 - **`gg status` at the end is a report, not a gate.** The deploy returned when
   the demand was recorded; the pod may still be pulling. Do not write a polling
   loop in CI — if you want a gate, gate on your own health check against the
@@ -514,6 +524,66 @@ Environment is the one thing a deploy still replaces wholesale, because it is
 part of what a revision ran with and is what a rollback puts back. Everything
 else that could be lost by forgetting to restate it has been moved out of a
 deploy for exactly that reason.
+
+### What does not go in env
+
+**No secrets. Not an API key, not a password, not a token, not a connection
+string with a password in it.** A deploy env is for configuration that is
+harmless to read and owned by this one service: `PORT`, `LOG_LEVEL`,
+`NODE_ENV`, `API=http://api:8080`. Anything that would hurt in the wrong hands
+belongs on the graph instead:
+
+| it is | where it goes |
+|---|---|
+| a gagarin database, cache, queue or bucket | `gg deps add P/SVC RESOURCE`. The credentials arrive by themselves, and are never copied into env |
+| a third-party key (Stripe, OpenAI, SMTP, a webhook secret) | `gg resource add P/NAME external --env-file .env.NAME`, then `gg deps add` |
+| config several services share, or that should change without a deploy | an `external` too, even when it is not secret |
+
+Why a secret in a deploy env is the wrong place, every time:
+
+- **It is copied into every revision.** History keeps each deploy's env so a
+  rollback can put it back, so a key you rotated is still stored, alongside every
+  older one, for as long as those revisions exist.
+- **It cannot be changed on its own.** A deploy replaces the whole env, so
+  rotating one key means restating all of them, and the API will not hand them
+  back: `status` and `history` return the variable *names* (`env_keys`), never
+  the values. Whoever rotates it needs the full `.env` file, or deletes every
+  key they forget.
+- **It is a copy per service.** Three services using one key means three
+  deploys to rotate it, and the one you forget keeps authenticating with a
+  revoked key. An external is one row: `gg resource rotate --set K=V` changes one
+  key, every holder is restarted, and `gg rollback P/NAME` undoes it.
+- **It lives in a file on someone's machine and in CI**, because it has to be
+  restated on every deploy. An external is stated once.
+
+**What you do as an agent:**
+
+- If the user hands you a credential for a service, make it an `external`
+  (written to a file first, never on the command line: see the external section).
+  Do not pass it with `--env`, and do not put it in a `.env` that a deploy reads.
+- If a `.env` you were asked to deploy with holds secrets, say so before
+  deploying, and offer to move them out. Do not quietly ship them, and do not
+  quietly drop them either: the service would start without them.
+- If a service already has a secret in its deploy env (`env_keys` in
+  `gg status` names it), say so and offer the move below. Do **not** try to
+  reconstruct its environment to redeploy: the values are not readable through
+  the API, and a guess deletes every key you leave out.
+
+Moving a secret out of a deploy env, without a moment where the service lacks
+it:
+
+```
+gg resource add shop/stripe external --env-file .env.stripe   # API_KEY=sk_live_…
+gg deps add shop/web stripe          # web now also holds STRIPE_API_KEY
+gg deploy shop/web:8080 web:v3 --env-file .env   # the same .env, minus STRIPE_API_KEY
+```
+
+The injected variable beats the deploy env, so the order is safe: `web` holds
+the key the whole way through, and the last deploy only removes the stale copy.
+Name the resource for how the application reads it: `stripe` with `API_KEY`
+publishes `STRIPE_API_KEY`. After the move, the old value is still stored in the
+history revisions that carried it. Rotate the key at the provider if it ever went
+anywhere it should not have.
 
 ### Size
 
@@ -915,8 +985,9 @@ An `.env.openai` holding `API_KEY` and `BASE_URL` makes `bot` hold
 **write the keys without the prefix** — `API_KEY`, not `OPENAI_API_KEY`, which is
 refused rather than doubled.
 
-**Why bother, instead of `--env OPENAI_API_KEY=…` on the deploy?** Because a key
-on a deploy is a copy. Three services using one key means three copies, rotating
+**This is where every third-party credential goes. A deploy env is not an
+alternative.** Why not `--env OPENAI_API_KEY=…` on the deploy? Because a key on a
+deploy is a copy. Three services using one key means three copies, rotating
 it means three deploys, and a deploy you forget leaves a service authenticating
 with a revoked key. As a resource it is one row and rotating is one command.
 
