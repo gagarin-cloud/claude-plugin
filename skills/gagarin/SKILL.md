@@ -60,6 +60,7 @@ first; they are the parts that stop you getting it wrong.
 |---|---|
 | `gg whoami` | which account this machine acts as — **run this first, always** |
 | `gg login` / `gg login --new` | get this machine access — relay the link and code, then run it again once approved |
+| `gg login --ref CODE` | the same, for a human a friend invited: the code (8 letters and digits) is added to the link so the new account is matched to the friend |
 | `gg creds` / `creds create --name N` / `creds revoke ID` | what has access; mint one for CI; take one away |
 | `gg registry login` | log docker in (CI, or docker installed after gg) |
 | `gg projects` | every project you can reach, and your role on it |
@@ -82,6 +83,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg logs P/SVC` | recent logs |
 | `gg history P/SVC` / `gg rollback P/SVC [--to N]` | every deploy; put one back |
 | `gg alerts on P` / `gg alerts test P` / `gg alerts P` / `gg alerts off P` | push-notify a member's own devices when a service goes down |
+| `gg referral` | the account's invite link and code (once it has topped up), and who signed up through it and what it earned; in MCP, `referrals` |
 | `gg members P` / `gg share P EMAIL [--role viewer]` / `gg unshare P EMAIL` | who can reach it |
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
 | `gg destroy P` or `P/NAME` | delete a project, a service or a resource (needs a human) |
