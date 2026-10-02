@@ -81,7 +81,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg status PROJECT` | desired vs actual, addresses, sizes, today's cost |
 | `gg logs P/SVC` | recent logs |
 | `gg history P/SVC` / `gg rollback P/SVC [--to N]` | every deploy; put one back |
-| `gg alerts on P` / `gg alerts test P` / `gg alerts P` / `gg alerts off P` | tell a phone when a service goes down, over ntfy |
+| `gg alerts on P` / `gg alerts test P` / `gg alerts P` / `gg alerts off P` | push-notify a member's own devices when a service goes down |
 | `gg members P` / `gg share P EMAIL [--role viewer]` / `gg unshare P EMAIL` | who can reach it |
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
 | `gg destroy P` or `P/NAME` | delete a project, a service or a resource (needs a human) |
@@ -1477,26 +1477,36 @@ evidence left intact for afterwards.
 
 ## Alerts
 
-A project can tell its owner's phone when something breaks. Alerts go to an
-[ntfy](https://ntfy.sh) topic — a free app with no account — and turning them
-on is the whole setup:
+A project can tell its members when something breaks. Alerts are Web Push
+notifications from the console (https://my.gagarin.cloud), which is also a PWA.
+Each member opts in per project for themselves, viewers included, and the
+notifications go only to that member's own devices. There is no topic, server
+or token to set up:
 
 ```
-gg alerts on shop        # ntfy.sh, a topic nobody can guess; prints it
-gg alerts test shop      # once the human has subscribed, to see one arrive
+gg alerts on shop        # opt the caller in; says how many devices they have
+gg alerts test shop      # sends a test push to the caller's own devices
+gg alerts shop           # whether the caller is opted in, and the device count
+gg alerts off shop       # opt the caller out
 ```
 
-Hand the human the topic `gg alerts on` prints; they install ntfy and subscribe
-to it. From then on they hear when a service has been down for three minutes,
-when a deploy will not start (the previous revision keeps serving), and when a
-container crashes and restarts — once when it starts and once when it ends,
-never on repeat. There are no rules to choose.
+In MCP, `set_alerts` takes only the project. Opting in is per caller, so one
+member turning alerts on does not turn them on for anyone else.
 
-`--server`, `--topic` and `--token` are for a human with their own ntfy server
-or a reserved topic. Leaving `--topic` off keeps the current one, so changing
-the server does not strand a phone that already subscribed. Offer alerts after
-a first deploy that a human cares about; do not turn them on without asking,
-because the notifications go to somebody.
+**An agent cannot add a device.** A device exists only once a human allows
+notifications in a browser, at `https://my.gagarin.cloud/projects/P/alerts`. On
+an iPhone the app must first be added to the Home Screen (Share, then Add to
+Home Screen) and opened from there, or the browser will not offer push at all.
+If `gg alerts on` reports no devices, hand the human that page. Then they hear
+when a service has been down for three minutes, when a deploy will not start
+(the previous revision keeps serving), and when a container crashes and
+restarts, once when it starts and once when it ends, never on repeat. The
+console keeps a 30-day feed of these notifications. There are no rules to
+choose. Offer alerts after a first deploy that a human cares about; do not turn
+them on without asking, because the notifications go to somebody.
+
+The old ntfy alerts are gone: `--server`, `--topic` and `--token` no longer
+exist, and sending them is refused with `ntfy_removed`.
 
 ## Sharing a project
 
@@ -1670,9 +1680,10 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | code | what to do |
 |---|---|
 | `alerts_off` | `gg alerts test` before alerts are on. `gg alerts on P` first |
-| `invalid_server` | the server must be a public `https://` address. Leave `--server` off for ntfy.sh |
-| `invalid_topic` | letters, digits, `-` and `_`, up to 64. Leave `--topic` off and one is made up |
-| `alerts_undeliverable` | the ntfy server refused the push; its reason follows. Usually a wrong token or topic |
+| `ntfy_removed` | alerts no longer go to ntfy; `server`, `topic` and `token` are refused. Run `gg alerts on P` with no flags |
+| `no_devices` | `gg alerts test` and the caller has no device. A human allows notifications at https://my.gagarin.cloud/projects/P/alerts (iPhone: add the app to the Home Screen first) |
+| `invalid_subscription` | the browser's push subscription was refused (not https, not a known push service, bad keys). The human re-enables notifications in the console |
+| `push_unconfigured` | the platform has no push keys yet. Nothing to fix on your side; tell the user |
 
 **Services, images and deploys**
 
