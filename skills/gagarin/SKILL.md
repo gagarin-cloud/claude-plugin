@@ -1486,11 +1486,11 @@ or token to set up:
 ```
 gg alerts on shop        # opt the caller in; says how many devices they have
 gg alerts test shop      # sends a test push to the caller's own devices
-gg alerts shop           # whether the caller is opted in, and the device count
 gg alerts off shop       # opt the caller out
 ```
 
-In MCP, `set_alerts` takes only the project. Opting in is per caller, so one
+`gg alerts P` says whether the caller is opted in, how many devices they have,
+and the last few notifications. In MCP, `set_alerts` takes only the project. Opting in is per caller, so one
 member turning alerts on does not turn them on for anyone else.
 
 **An agent cannot add a device.** A device exists only once a human allows
