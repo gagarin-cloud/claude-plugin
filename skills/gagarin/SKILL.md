@@ -240,7 +240,7 @@ This skill is not part of the binary. It lives in
 plugin, elsewhere with `npx skills add gagarin-cloud/claude-plugin -g`. So it can
 be newer than the `gg` you are holding: **if a command here is refused as
 unknown, check `gg version` and upgrade before concluding the command does not
-exist.** Everything documented here is present in gg v0.33.0 and later.
+exist.** Everything documented here is present in gg v0.40.0 and later.
 
 ## If you cannot install gg: the MCP server
 
