@@ -240,7 +240,7 @@ This skill is not part of the binary. It lives in
 plugin, elsewhere with `npx skills add gagarin-cloud/claude-plugin -g`. So it can
 be newer than the `gg` you are holding: **if a command here is refused as
 unknown, check `gg version` and upgrade before concluding the command does not
-exist.** Everything documented here is present in gg v0.40.0 and later.
+exist.** Everything documented here is present in gg v0.42.0 and later.
 
 ## If you cannot install gg: the MCP server
 
@@ -640,6 +640,7 @@ not have a type for".
 gg build shop/migrate:v3 --context ./migrations
 gg run   shop/migrate migrate:v3 --deps db --env-file .env
 gg run   shop/migrate migrate:v3 --detach        submit and return
+gg run   shop/migrate migrate:v3 --timeout 5m    stop it at five minutes
 ```
 
 A job is a service that ends. It has an image, an environment, a size and a
@@ -658,12 +659,22 @@ runs. Durable data belongs in a resource the job reaches with `--deps`.
 - **A run that fails is not retried**, and its exit code is reported once. Fix
   the script and run again; the platform will not re-run a half-applied
   migration on its own.
-- **A run is stopped after sixty minutes.** `gg status` says so when that is
-  why it ended. Something that needs longer is a service.
+- **A run is stopped at its timeout, which is sixty minutes unless you set
+  one.** `--timeout 5m` takes a Go duration (`45s`, `5m`, `1m30s`, `1h`) from
+  one second to sixty minutes, in whole seconds; over MCP it is
+  `timeout_seconds`, 1 to 3600. Left out, a job keeps the timeout its last run
+  was given, and a new job gets sixty minutes; to go back to the default, say
+  `60m` (or 3600) outright. The clock starts when the run is submitted, not when
+  the script starts, so scheduling and pulling the image use some of it. At the
+  deadline the run is sent SIGTERM, and killed thirty seconds later if it is
+  still running. `gg status` says so when that is why it ended: "the run was
+  stopped at its timeout of 5 minutes, counted from when it was submitted".
+  Something that needs longer than an hour is a service.
 - **Its image is any image in the project's space** — build one with
   `gg build`, or run the service's own image with a different entrypoint baked
   into a second Dockerfile. `gg run` does not build.
-- **A job is billed for the time it runs**, at its size, not for existing.
+- **A job is billed for the time it runs**, at its size, not for existing: by
+  the minute. A hung run costs at most its timeout.
 - **Kinds do not change.** A name that is a job stays a job (`not_a_service`),
   and a name that is a service cannot be run as a job (`not_a_job`). Give the
   job its own name.
@@ -1695,6 +1706,8 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `image_not_yours` | the image is not in this project's registry space. Build or push into this project, or `gg registry copy` it in |
 | `invalid_digest` | pass what `docker push` reported, or leave it out |
 | `invalid_port` | set the port the container actually listens on |
+| `invalid_timeout` | `timeout_seconds` outside 1–3600. Give 1–3600 or leave it out |
+| `service_has_no_timeout` | `timeout_seconds` was given on a service rather than a job. Drop it; a service runs until it is replaced |
 | `invalid_kind` | `kind` is absent for a service or `job` for a job; nothing else exists |
 | `job_has_no_port` / `job_has_no_volume` | drop the field: a job listens on nothing and keeps nothing. Durable data goes in a resource it reaches |
 | `not_a_job` | that name is a service; a job needs a name of its own |
