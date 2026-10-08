@@ -68,6 +68,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg ship P/SVC:PORT` | build the current directory, push it, run it |
 | `gg build P/IMAGE[:TAG]` / `gg push P/IMAGE:TAG` / `gg deploy P/SVC:PORT IMAGE:TAG` | the same three steps apart, which is what CI wants |
 | `gg run P/JOB IMAGE:TAG` | run an image to completion as a job, wait, print what it wrote, exit with its code |
+| `gg run P/JOB IMAGE:TAG --schedule "0 3 * * *"` | run it on a schedule instead of now; returns at once |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
 | `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, s3 or external |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
@@ -687,6 +688,55 @@ deploy that needs a migration first is two commands, in this order:
 gg run    shop/migrate migrate:v3 --deps db     # exits non-zero if it failed: stop here
 gg deploy shop/api:8080 api:v3
 ```
+
+### On a schedule
+
+```
+gg run shop/report report:v2 --schedule "0 3 * * *" --tz Europe/Berlin
+gg run shop/report report:v3                     next firing runs v3; schedule kept
+gg run shop/sync   sync:v1   --schedule "*/5 * * * *" --deps db
+```
+
+Use this for anything the user describes as "every night", "every hour", "on
+Mondays": a nightly import, a report, a cleanup, a sync. It is still a job —
+same image, environment, size, timeout and graph — with one more property.
+
+- **`--schedule` is five cron fields** (minute hour day-of-month month
+  day-of-week) **or a descriptor**: `@hourly`, `@daily`, `@weekly`, `@monthly`,
+  `@yearly`. It may fire as often as every minute. `@every` and a
+  `CRON_TZ=`/`TZ=` prefix are refused (`invalid_schedule`).
+- **`--tz` is the zone the schedule is read in**, an IANA name like
+  `Europe/Berlin`; UTC when left out. Ask the user which zone they mean when they
+  say "at 3am" — the default is UTC, not their laptop's zone.
+- **A scheduled `gg run` does not wait**, because nothing runs now: it prints
+  the schedule and the next firing and returns, whatever `--detach` says. There
+  is no exit code to read. `gg status` is how you learn how each firing ended.
+- **Each firing is a run** like any other: not retried when it fails, stopped
+  at its timeout, billed for the time it ran. A schedule waiting between
+  firings costs nothing. **Runs never overlap**: a firing that comes while the
+  previous run is still going is not started beside it — it waits, and starts
+  the moment that run ends; several firings missed that way start once. A job
+  that takes longer than its interval therefore runs back to back, not in
+  parallel.
+- **`gg run` again without `--schedule` keeps the schedule** and changes what
+  the next firing runs — the image, `--env`, `--size`, `--timeout`. A firing
+  already going keeps what it started with. `--schedule` again changes when;
+  `--tz` alone changes the zone.
+- **`--schedule` on a one-shot job makes it scheduled**, between runs only:
+  while its run is still going it is refused `job_running`.
+- **A schedule cannot be removed.** `gg run` means "run this", so a
+  `--schedule off` would fire a run when all you wanted was for the schedule to
+  stop — the one thing the command could not avoid doing. To stop a scheduled
+  job, destroy it (a human approves) and, if it should still exist as a one-shot
+  job, run it again without `--schedule`. Do not look for a flag to pause or
+  clear a schedule; there is none.
+- **A failed firing alerts** whoever opted in to the project's alerts, once,
+  and a later firing that succeeds resolves it. Nobody else is watching a run
+  at three in the morning, so suggest `gg alerts on PROJECT` when you set up a
+  schedule for someone who has them off.
+- Over MCP, `run` takes `schedule` and `time_zone`, and `status` carries
+  `schedule`, `time_zone` and `actual.schedule` (`next_at`,
+  `last_scheduled_at`, `suspended`).
 
 ## Dependencies: what may reach what
 
@@ -1424,6 +1474,8 @@ What to read, in the order it matters:
    - `◇` **bucket** — an `s3`: runs nothing either, and its edges read `files◇`.
    - `✓` **done** — a job whose latest run finished with exit code 0. A job
      whose run failed is `○`, and the line under the table gives its exit code.
+   - `◷` **scheduled** — a scheduled job that has not fired yet. Waiting, not
+     wrong: its line says when it fires next.
 3. **`◐` and `○` print the cluster's own explanation below the table.** Read it
    before changing anything.
 4. **READY counts pods of the revision you asked for.** A redeploy that will not
@@ -1433,7 +1485,9 @@ What to read, in the order it matters:
    `failed`, `running`, `pending` — its PORT is a dash, and the line under the
    row says which run, when, how long, the exit code, and for a failed run the
    cluster's reason: `○  └ run 4 failed 2 minutes ago after 3s, exit 2: the
-   container exited with code 2`.
+   container exited with code 2`. A scheduled job's cell also carries its
+   schedule (`⏱ 0 3 * * *`), and its line ends with when it fires next
+   (`· next in 21h`) or that the schedule is suspended with the project.
 5. **Addresses hang under their service**, marked `●` when there is nothing left
    to do and `○` with who is holding it up when there is. An address that is fine
    says nothing more than its own URL.
@@ -1711,6 +1765,10 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `invalid_kind` | `kind` is absent for a service or `job` for a job; nothing else exists |
 | `job_has_no_port` / `job_has_no_volume` | drop the field: a job listens on nothing and keeps nothing. Durable data goes in a resource it reaches |
 | `not_a_job` | that name is a service; a job needs a name of its own |
+| `invalid_schedule` | five cron fields like `"0 3 * * *"`, or `@daily` and the like. Not `@every`, no `CRON_TZ=` — the zone is `--tz`. An empty one is refused too: a schedule cannot be removed, so destroy the job to stop it |
+| `invalid_time_zone` | an IANA name like `Europe/Berlin` or `UTC` — or a `--tz` given to a job with no schedule |
+| `service_has_no_schedule` | `--schedule`/`--tz` reached a service. A schedule is a job's: `gg run` |
+| `job_running` | a one-shot job was given a schedule while its run is going. Wait for it to end (`gg status`), or destroy the job |
 | `invalid_volume` | an absolute path inside the container, e.g. `/var/lib/postgresql/data` |
 | `volume_immutable` | a volume is set once and never moves or resizes. Keep it, or destroy the service and deploy again — which throws the data away |
 | `invalid_size` | sizes are `s`, `m`, `l`; the message names the account's cap |
