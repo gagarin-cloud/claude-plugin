@@ -714,7 +714,10 @@ same image, environment, size, timeout and graph — with one more property.
 - **Each firing is a run** like any other: not retried when it fails, stopped
   at its timeout, billed for the time it ran. A schedule waiting between
   firings costs nothing. **Runs never overlap**: a firing that comes while the
-  previous run is still going is skipped, not started beside it.
+  previous run is still going is not started beside it — it waits, and starts
+  the moment that run ends; several firings missed that way start once. A job
+  that takes longer than its interval therefore runs back to back, not in
+  parallel.
 - **`gg run` again without `--schedule` keeps the schedule** and changes what
   the next firing runs — the image, `--env`, `--size`, `--timeout`. A firing
   already going keeps what it started with. `--schedule` again changes when;
