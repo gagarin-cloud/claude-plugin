@@ -1,6 +1,6 @@
 ---
 name: gagarin
-description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
+description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, start jobs from an application's own code with the Go, Node or Python SDK, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
 ---
 
 # Deploying with gagarin
@@ -69,6 +69,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg build P/IMAGE[:TAG]` / `gg push P/IMAGE:TAG` / `gg deploy P/SVC:PORT IMAGE:TAG` | the same three steps apart, which is what CI wants |
 | `gg run P/JOB IMAGE:TAG` | run an image to completion as a job, wait, print what it wrote, exit with its code |
 | `gg run P/JOB IMAGE:TAG --schedule "0 3 * * *"` | run it on a schedule instead of now; returns at once |
+| the SDK (Go, Node, Python) | start runs from an application's own code — see "From code: the SDK" |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
 | `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, s3 or external |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
@@ -274,6 +275,10 @@ when the work is purely operational — reading state, rolling back, wiring deps
 managing addresses. If a task needs an image built and you hold only MCP tools,
 say so and install `gg` rather than reporting a deploy you were unable to make.
 
+There is a third way into the same API, and it is for neither you nor a
+person: **application code uses the SDK** (Go, Node, Python) — see "From code:
+the SDK".
+
 ## Getting access
 
 `gg login` is one command whether this is the first machine on a new account or
@@ -317,8 +322,9 @@ says what that list is for.
 
 You never handle the credential yourself. Do not read that file, do not echo it,
 and never ask the user for a token — if you find yourself wanting a secret to
-make `gg` work, you are doing this wrong. The exception is CI, which gets its
-own, below.
+make `gg` work, you are doing this wrong. The exceptions are CI and an
+application that starts jobs, and each gets its own — "Setting up CI" below, and
+"From code: the SDK".
 
 If `docker` was installed after gagarin, `gg registry login` does that half on
 its own.
@@ -737,6 +743,114 @@ same image, environment, size, timeout and graph — with one more property.
 - Over MCP, `run` takes `schedule` and `time_zone`, and `status` carries
   `schedule`, `time_zone` and `actual.schedule` (`next_at`,
   `last_scheduled_at`, `suspended`).
+
+### From code: the SDK
+
+`gg run` is for a person or a pipeline, and `--schedule` for a clock. When
+**a program** decides that a job should run — on a request, a queue message, a
+user's click — it starts the run with the SDK. **Never shell out to `gg` from an
+application**: it would need gg installed in the image and a login on a machine
+nobody signs in to. The SDK is the same API as a library, in three languages,
+each with no runtime dependencies:
+
+```
+npm install @gagarin-cloud/sdk              Node 18+, TypeScript types included
+pip install gagarin                         Python 3.9+
+go get github.com/gagarin-cloud/sdk/go      Go 1.22+
+```
+
+Each one reads `GAGARIN_TOKEN` (and `GAGARIN_API`, `GAGARIN_REGISTRY`) from the
+environment, exactly as gg does. The four job calls are `run` (submit; returns
+the run's `revision` at once), `wait` (until that revision ends), `runAndWait`
+(both, which is `gg run`) and `logs`.
+
+```ts
+import { Gagarin, GagarinError } from "@gagarin-cloud/sdk";
+
+const gg = new Gagarin();
+const name = `export-${id}`;                       // one name per run; see below
+try {
+  const sub = await gg.jobs.run("shop", name, {
+    image: "export:v4", env: { EXPORT_ID: id }, deps: ["files"], timeoutSeconds: 900,
+  });
+  const run = await gg.jobs.wait("shop", name, sub.revision);
+  if (run.phase !== "done") { /* failed: run.exit_code, and gg.jobs.logs("shop", name) */ }
+} catch (e) {
+  if (e instanceof GagarinError && e.code === "payment_required") { /* … */ }
+  throw e;
+}
+```
+
+```python
+from gagarin import Gagarin, GagarinError
+
+gg = Gagarin()
+res = gg.jobs.run_and_wait("shop", f"export-{id}", image="export:v4",
+                           env={"EXPORT_ID": id}, deps=["files"], timeout_seconds=900)
+res.exit_code                                     # what gg run would exit with
+```
+
+```go
+c, err := gagarin.NewClient()   // import gagarin "github.com/gagarin-cloud/sdk/go"
+res, err := c.Jobs.RunAndWait(ctx, "shop", "export-"+id, gagarin.RunOptions{
+	Image: "export:v4", Env: map[string]string{"EXPORT_ID": id},
+	Deps: []string{"files"}, TimeoutSeconds: 900,
+})
+if gagarin.IsCode(err, "payment_required") { /* … */ }
+res.ExitCode()
+```
+
+Everything in "Jobs" above still holds, because it is the same call:
+
+- **The image must already be in the registry.** The SDK neither builds nor
+  pushes; `gg build` and `gg push` (or CI) put it there first. A bare
+  `repo:tag` is expanded to the project's registry space for you.
+- **`env` is the run's complete environment**, not merged with the last one;
+  leave it out and the run has none. **`deps` adds** to what the job already
+  declares. Both follow rule 7: no credential goes in `env` — a job reaches its
+  database or bucket through `deps`.
+- **The timeout is at most 3600 seconds and starts at submission.** Every call
+  is a new run, billed for the time it runs.
+- **Refusals are a typed error carrying the API's `code`**, `message` and
+  fix hint: `GagarinError` in Node and Python, `*gagarin.Error` with
+  `gagarin.IsCode` in Go. Branch on the code, as in "Error codes".
+- **It does not destroy anything.** Destroying is a human's approval, and the
+  SDK leaves it out.
+
+**One name per run that may overlap another.** Starting a run on a job **stops
+that job's run still going** — a new revision is what the job is now. So an
+application that may start a second run before the first has ended must give
+each its own job name: a fixed prefix and a short id of the work (`export-7f3a`),
+never raw user input, and within `^[a-z][a-z0-9-]{1,29}$`. If only a fixed number
+should run at once, a name per lane (`export-1` … `export-4`) is the alternative,
+and the application must not start a lane that is busy. A `wait` on a run that a
+newer one replaced fails with `superseded` (`gagarin.ErrSuperseded` in Go) —
+the symptom of two runs sharing a name. Say the cost plainly: a finished job
+costs nothing, but it stays in `gg status`, and removing it is `gg destroy`, which
+a human approves.
+
+**The application needs a credential of its own**, minted the way CI's is and
+delivered the way every other secret is — as an `external` resource, never in
+`--env`. Name the resource `gagarin` and the key `TOKEN`, and the service holds
+exactly the `GAGARIN_TOKEN` the SDK reads:
+
+```
+printf 'TOKEN=%s\n' "$(gg creds create --name "shop/api: starts jobs" 2>/dev/null)" > .env.gagarin
+gg resource add shop/gagarin external --env-file .env.gagarin
+gg deps add shop/api gagarin
+rm .env.gagarin
+```
+
+The token never reaches the terminal or the transcript. Tell the user what it is:
+
+- **It can deploy and run anything in the account**, not only this project, and
+  it **cannot destroy**. Anyone who can read the service's environment holds it.
+- **It expires** — 90 days unless `--expires` says otherwise, 365 at most. Before
+  then, mint a new one the same way into `.env.gagarin` and
+  `gg resource rotate shop/gagarin --env-file .env.gagarin`; the service rolls with
+  it. Never `--set TOKEN=…`: that puts the token on a command line.
+- **`gg creds revoke ID` stops it**, and `gg creds` lists it under the name you
+  gave it.
 
 ## Dependencies: what may reach what
 
