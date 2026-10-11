@@ -1329,8 +1329,14 @@ will look for AWS. The endpoint is `https`.
     meant to stay private belong in a private bucket, served by the app (which
     proxies them or hands out its own signed links). Ask the user before
     running it.
-  - **There is no CORS configuration.** Plain links and `<img>` work; a
-    browser's cross-origin `fetch` from another site does not.
+  - **Browsers on any site can read it.** Making a bucket public also sets a
+    CORS rule: any origin, `GET` and `HEAD` only, no credentials. So
+    `fetch()` of an object or the listing, web fonts, ES modules and
+    `<img crossorigin>` (and reading a canvas) work. It adds no exposure, since
+    a public object was already readable with curl, and writes still need the
+    key. `gg resource private` removes it. A bucket made public before this
+    existed gets it by running `gg resource public` again. The tenant cannot
+    set CORS itself.
   - **Egress is not metered per bucket yet.** Say so to the user when a public
     bucket is going to carry heavy traffic (a download host, a busy site's
     images).
