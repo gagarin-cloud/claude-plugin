@@ -72,6 +72,7 @@ first; they are the parts that stop you getting it wrong.
 | the SDK (Go, Node, Python) | start runs from an application's own code — see "From code: the SDK" |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
 | `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, s3 or external |
+| `gg resource public P/NAME` | make an `s3` bucket listable and readable by anyone; `gg resource private P/NAME` undoes it |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
 | `gg resource secrets P/NAME --names` | just the variable names it publishes, no values |
 | `gg resource rotate P/NAME` | new credentials, and everything holding them rolls |
@@ -952,7 +953,7 @@ gg resource add shop/openai external --env-file .env.openai
 | `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
 | `iggy` | Apache Iggy, a persistent message-streaming log | on a volume (10 GB unless `--storage`); survives restarts | nightly, kept 14 days — see the durability caveat |
 | `valkey` | in-memory store, redis protocol | **none — a restart loses everything** | none, by design |
-| `s3` | a private S3-compatible bucket, for files | **objects on durable storage; it runs nothing** | **none** |
+| `s3` | an S3-compatible bucket, for files — private until `gg resource public` | **objects on durable storage; it runs nothing** | **none** |
 | `external` | a third-party API, run by nobody here | **none — it runs nothing at all** | nothing to back up |
 
 The types are named for what actually runs, not for the products they stand in
@@ -1055,7 +1056,8 @@ own name, upper-cased with dashes as underscores, plus a suffix:
 
 An `s3` bucket publishes none of these. It publishes five of its own:
 `<NAME>_ENDPOINT`, `<NAME>_REGION`, `<NAME>_BUCKET`, `<NAME>_ACCESS_KEY_ID` and
-`<NAME>_SECRET_ACCESS_KEY` — see its section below.
+`<NAME>_SECRET_ACCESS_KEY` — see its section below. While it is public it also
+publishes `<NAME>_PUBLIC_URL`.
 
 A postgres called `db` publishes `DB_URL`; one called `orders-db` publishes
 `ORDERS_DB_URL`; a valkey called `cache` publishes `CACHE_URL` and no
@@ -1292,7 +1294,8 @@ oversights:
 ### `s3`: a bucket for files
 
 User uploads, generated files, ML artifacts, static assets an app serves
-itself. gagarin's object storage, as a private S3-compatible bucket.
+itself. gagarin's object storage, as an S3-compatible bucket that is private
+until you say otherwise.
 
 ```
 gg resource add shop/files s3
@@ -1311,10 +1314,26 @@ will look for AWS. The endpoint is `https`.
   `object_storage_unavailable` (HTTP 501); report it.
 - **It runs nothing.** No pod, no port, no volume, no logs. gagarin mints its
   key, like postgres — unlike an external.
-- **Only the bucket's own key can read or write it.** Another project's key
-  cannot, and nothing a service does can make an object public: there are no
-  public buckets. A service that must serve files to browsers proxies them or
-  hands out its own signed links.
+- **A bucket is private by default.** Only its own key can read or write it;
+  another project's key cannot.
+- **`gg resource public P/NAME` makes the whole bucket listable and readable by
+  anyone**, no key needed. Writes still need the key. Every dependent then gets
+  `<NAME>_PUBLIC_URL` (`https://<bucket>.s3.fr-par.scw.cloud`) and is restarted
+  for it; `gg resource private P/NAME` undoes it and the variable goes away. Both
+  are idempotent, need the editor role and a deploy-scope credential, and
+  `publish_failed` changed nothing, so run it again. The public address also
+  shows in `gg status` among the project's domains.
+  - **Only make public what is genuinely meant to be public.** Listing exposes
+    every object name in the bucket, not just the ones the app links to, and
+    anything fetched while it was open stays fetched. User uploads that are
+    meant to stay private belong in a private bucket, served by the app (which
+    proxies them or hands out its own signed links). Ask the user before
+    running it.
+  - **There is no CORS configuration.** Plain links and `<img>` work; a
+    browser's cross-origin `fetch` from another site does not.
+  - **Egress is not metered per bucket yet.** Say so to the user when a public
+    bucket is going to carry heavy traffic (a download host, a busy site's
+    images).
 - **Declaring it does NOT restrict the network.** It is reached over the
   internet, not inside the cluster, so — exactly like an external — the
   declaration hands over the key and nothing more. It is not a firewall. `gg
@@ -1327,8 +1346,9 @@ will look for AWS. The endpoint is `https`.
 - **It costs $0.03 per GB-month** of what it actually holds, measured hourly,
   rounded up to whole GB and prorated per minute. There is no running charge,
   and requests and traffic are not billed.
-- **Not deployable, not rollback-able, no domain.** `gg deploy` over it is
-  `not_a_service`, as is `gg rollback` (gagarin mints its key).
+- **Not deployable, not rollback-able, no `gg domain`.** `gg deploy` over it is
+  `not_a_service`, as is `gg rollback` (gagarin mints its key). Its public
+  address comes from `gg resource public`, not from a domain.
 - **Destroying it** needs the human's email approval, is refused while anything
   still declares it, cuts the key off at once, and permanently deletes every
   object shortly after.
@@ -1926,6 +1946,8 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `no_such_key` | that external does not publish the key named in `--unset`. `gg resource secrets` lists what it does — and the name goes in without the resource's prefix |
 | `no_env` | this type mints its own credentials (s3 included), so there is nothing to pass or amend; `gg resource secrets` reads them |
 | `object_storage_unavailable` | HTTP 501: this gagarin has no object storage configured, so no `s3`. Report it to the user |
+| `not_a_bucket` | HTTP 409: only an `s3` can be made public. A service gets an address with `gg domain add` |
+| `publish_failed` | HTTP 502: **nothing changed** — retry `gg resource public` or `private` |
 | `rotate_failed` | **nothing changed** — the old credential still works. Check `gg status` for a resource that is not running, then retry |
 | `cannot_rotate` | no credentials recorded to replace; worth reporting as a bug |
 | `not_tunnelable` | an external runs nothing, so there is nothing to tunnel to; its values are `gg resource secrets` |
