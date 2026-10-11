@@ -671,17 +671,27 @@ runs. Durable data belongs in a resource the job reaches with `--deps`.
   one second to sixty minutes, in whole seconds; over MCP it is
   `timeout_seconds`, 1 to 3600. Left out, a job keeps the timeout its last run
   was given, and a new job gets sixty minutes; to go back to the default, say
-  `60m` (or 3600) outright. The clock starts when the run is submitted, not when
-  the script starts, so scheduling and pulling the image use some of it. At the
-  deadline the run is sent SIGTERM, and killed thirty seconds later if it is
-  still running. `gg status` says so when that is why it ended: "the run was
-  stopped at its timeout of 5 minutes, counted from when it was submitted".
+  `60m` (or 3600) outright. The clock starts when the run gets a machine, not
+  when the script starts, so pulling the image uses some of it; waiting for a
+  machine uses none. A run that never gets a machine is given up on after its
+  timeout plus thirty minutes, and its status says nothing ran and nothing was
+  billed. At the deadline the run is sent SIGTERM, and killed thirty seconds
+  later if it is still running. `gg status` says so when that is why it ended:
+  "the run was stopped at its timeout of 5 minutes, counted from when it got a
+  machine; gg run --timeout gives it up to 60 minutes" (at the ceiling: "...after
+  60 minutes, counted from when it got a machine, which is the most a job may
+  take").
   Something that needs longer than an hour is a service.
 - **Its image is any image in the project's space** — build one with
   `gg build`, or run the service's own image with a different entrypoint baked
   into a second Dockerfile. `gg run` does not build.
 - **A job is billed for the time it runs**, at its size, not for existing: by
-  the minute. A hung run costs at most its timeout.
+  the minute, from when its container starts. Waiting for a machine and pulling
+  the image are not billed. A hung run costs at most its timeout.
+- **A run can sit `pending` without being stuck.** With no machine yet, `gg
+  status` says "waiting for a machine with room for it — the cluster adds one
+  within a few minutes unless it is at its limit; nothing is billed until it
+  starts". Keep waiting; it is not a failure.
 - **Kinds do not change.** A name that is a job stays a job (`not_a_service`),
   and a name that is a service cannot be run as a job (`not_a_job`). Give the
   job its own name.
@@ -809,8 +819,8 @@ Everything in "Jobs" above still holds, because it is the same call:
   leave it out and the run has none. **`deps` adds** to what the job already
   declares. Both follow rule 7: no credential goes in `env` — a job reaches its
   database or bucket through `deps`.
-- **The timeout is at most 3600 seconds and starts at submission.** Every call
-  is a new run, billed for the time it runs.
+- **The timeout is at most 3600 seconds and starts when the run gets a
+  machine.** Every call is a new run, billed for the time it runs.
 - **Refusals are a typed error carrying the API's `code`**, `message` and
   fix hint: `GagarinError` in Node and Python, `*gagarin.Error` with
   `gagarin.IsCode` in Go. Branch on the code, as in "Error codes".
