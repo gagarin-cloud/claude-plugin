@@ -16,8 +16,9 @@ and the **plugin** in it.
 That gives you four things:
 
 - **The skill** — the whole product, written for an agent: the model, every
-  command, every error code, and the mistakes worth not making. It is the same
-  file that ships inside the `gg` binary, so it cannot disagree with the CLI.
+  command, every error code, and the mistakes worth not making. It lives in this
+  repository, so it can be newer than the `gg` you have; CI checks every command
+  it names against the latest released `gg` (see [The skill lives here](#the-skill-lives-here)).
 - **The MCP server** at `https://mcp.gagarin.cloud/mcp` — the gagarin API as
   tools, and the project's **memory**: the durable facts an agent keeps about a
   codebase so the next session does not rediscover them, reachable only here.
