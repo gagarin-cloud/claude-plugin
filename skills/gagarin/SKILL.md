@@ -649,6 +649,7 @@ gg build shop/migrate:v3 --context ./migrations
 gg run   shop/migrate migrate:v3 --deps db --env-file .env
 gg run   shop/migrate migrate:v3 --detach        submit and return
 gg run   shop/migrate migrate:v3 --timeout 5m    stop it at five minutes
+gg run   shop/migrate migrate:v3 --ttl 30m       remove it half an hour after it ends
 ```
 
 A job is a service that ends. It has an image, an environment, a size and a
@@ -683,6 +684,16 @@ runs. Durable data belongs in a resource the job reaches with `--deps`.
   60 minutes, counted from when it got a machine, which is the most a job may
   take").
   Something that needs longer than an hour is a service.
+- **A finished run is removed after its TTL, eight hours unless you set one.**
+  `--ttl 30m` takes a duration from one minute to eight hours; over MCP it is
+  `ttl_seconds`, 60 to 28800 (`invalid_ttl` outside that). Left out, a job keeps
+  the TTL it has, and a new job gets eight hours. It counts from when the run
+  **ended**, not from when it got a machine as the timeout does. On expiry a
+  one-shot job is deleted outright: its row, history and runs go, it leaves
+  `gg status`, and its name is free again (a reused name starts at revision 1).
+  `gg logs` still has what the run wrote while the job exists. So read the
+  outcome with `gg run` (which waits) or `gg status` before the TTL passes, and
+  there is nothing to `gg destroy` afterwards.
 - **Its image is any image in the project's space** — build one with
   `gg build`, or run the service's own image with a different entrypoint baked
   into a second Dockerfile. `gg run` does not build.
@@ -736,7 +747,7 @@ same image, environment, size, timeout and graph — with one more property.
   that takes longer than its interval therefore runs back to back, not in
   parallel.
 - **`gg run` again without `--schedule` keeps the schedule** and changes what
-  the next firing runs — the image, `--env`, `--size`, `--timeout`. A firing
+  the next firing runs — the image, `--env`, `--size`, `--timeout`, `--ttl`. A firing
   already going keeps what it started with. `--schedule` again changes when;
   `--tz` alone changes the zone.
 - **`--schedule` on a one-shot job makes it scheduled**, between runs only:
@@ -747,12 +758,16 @@ same image, environment, size, timeout and graph — with one more property.
   job, destroy it (a human approves) and, if it should still exist as a one-shot
   job, run it again without `--schedule`. Do not look for a flag to pause or
   clear a schedule; there is none.
+- **`--ttl` on a scheduled job applies to each firing**, counted from when it
+  ended, and the job stays: only that firing's run is removed. `gg status` still
+  reports the last firing, reading "(removed after its ttl)", and `gg logs` keeps
+  what it wrote.
 - **A failed firing alerts** whoever opted in to the project's alerts, once,
   and a later firing that succeeds resolves it. Nobody else is watching a run
   at three in the morning, so suggest `gg alerts on PROJECT` when you set up a
   schedule for someone who has them off.
-- Over MCP, `run` takes `schedule` and `time_zone`, and `status` carries
-  `schedule`, `time_zone` and `actual.schedule` (`next_at`,
+- Over MCP, `run` takes `schedule`, `time_zone` and `ttl_seconds`, and `status`
+  carries `schedule`, `time_zone` and `actual.schedule` (`next_at`,
   `last_scheduled_at`, `suspended`).
 
 ### From code: the SDK
@@ -822,6 +837,15 @@ Everything in "Jobs" above still holds, because it is the same call:
   database or bucket through `deps`.
 - **The timeout is at most 3600 seconds and starts when the run gets a
   machine.** Every call is a new run, billed for the time it runs.
+- **The TTL is `ttlSeconds` (Node), `ttl_seconds` (Python), `TTLSeconds` (Go)**,
+  60 to 28800 (`MIN_TTL_SECONDS`/`MAX_TTL_SECONDS`, `MinTTLSeconds`/`MaxTTLSeconds`
+  in Go); leave it out for the job's current one, eight hours on a new job. It
+  counts from when the run ended and then removes a one-shot job, so `wait` or
+  `runAndWait` and read the run (and `logs`) before it goes. After that, `get`
+  and `wait` on the name fail `not_found` ("nothing named … in project …"), which
+  looks the same as a job that never existed. A scheduled firing is the
+  exception: the job stays, and its last run reads `expired: true`
+  (`Expired` in Go) with phase, exit code and times intact.
 - **Refusals are a typed error carrying the API's `code`**, `message` and
   fix hint: `GagarinError` in Node and Python, `*gagarin.Error` with
   `gagarin.IsCode` in Go. Branch on the code, as in "Error codes".
@@ -836,9 +860,9 @@ never raw user input, and within `^[a-z][a-z0-9-]{1,29}$`. If only a fixed numbe
 should run at once, a name per lane (`export-1` … `export-4`) is the alternative,
 and the application must not start a lane that is busy. A `wait` on a run that a
 newer one replaced fails with `superseded` (`gagarin.ErrSuperseded` in Go) —
-the symptom of two runs sharing a name. Say the cost plainly: a finished job
-costs nothing, but it stays in `gg status`, and removing it is `gg destroy`, which
-a human approves.
+the symptom of two runs sharing a name. A finished job costs nothing and
+removes itself after its TTL, eight hours unless the run asks for less, which
+frees its name; nothing needs `gg destroy`, so per-run names do not pile up.
 
 **The application needs a credential of its own**, minted the way CI's is and
 delivered the way every other secret is — as an `external` resource, never in
@@ -1637,7 +1661,9 @@ What to read, in the order it matters:
    cluster's reason: `○  └ run 4 failed 2 minutes ago after 3s, exit 2: the
    container exited with code 2`. A scheduled job's cell also carries its
    schedule (`⏱ 0 3 * * *`), and its line ends with when it fires next
-   (`· next in 21h`) or that the schedule is suspended with the project.
+   (`· next in 21h`) or that the schedule is suspended with the project. A scheduled firing whose TTL
+   passed still shows, ending "(removed after its ttl)"; `gg logs` keeps its
+   output. A one-shot job past its TTL is not listed at all.
 5. **Addresses hang under their service**, marked `●` when there is nothing left
    to do and `○` with who is holding it up when there is. An address that is fine
    says nothing more than its own URL.
@@ -1912,6 +1938,8 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `invalid_port` | set the port the container actually listens on |
 | `invalid_timeout` | `timeout_seconds` outside 1–3600. Give 1–3600 or leave it out |
 | `service_has_no_timeout` | `timeout_seconds` was given on a service rather than a job. Drop it; a service runs until it is replaced |
+| `invalid_ttl` | `ttl_seconds` outside 60–28800. Give 60–28800 or leave it out to keep the current one (28800 for a new job) |
+| `service_has_no_ttl` | `ttl_seconds` was given on a service rather than a job. Drop it; a service runs until it is replaced, only a job's finished runs expire |
 | `invalid_kind` | `kind` is absent for a service or `job` for a job; nothing else exists |
 | `job_has_no_port` / `job_has_no_volume` | drop the field: a job listens on nothing and keeps nothing. Durable data goes in a resource it reaches |
 | `not_a_job` | that name is a service; a job needs a name of its own |
