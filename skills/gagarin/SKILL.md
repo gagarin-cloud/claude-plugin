@@ -308,6 +308,10 @@ If the second run fails:
   gone. Run `gg login` for a fresh link and pass it on straight away.
 - `[access_denied]` — the user declined on the page, and the request is gone.
   Ask them why before running it again, and do not retry on your own.
+- `[github_account_too_new]` — the user signed in with a GitHub account under
+  30 days old, which gagarin does not accept yet. The request is kept: tell them
+  to open the same link and choose **Continue with Google**, then run `gg login`
+  again once they say they approved.
 
 `gg login --new` throws away a request nobody approved and asks for a new code —
 for when the user lost the link, or it was meant for a different account.
@@ -1888,6 +1892,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `authorization_pending` | nobody has approved the `gg login` request yet. Relay the link again if needed; run `gg login` again once the user says they approved |
 | `expired_token` | the `gg login` request lived fifteen minutes and nobody approved it. Run it again and pass on the new link |
 | `access_denied` | the user declined `gg login` on the page. Ask them before running it again |
+| `github_account_too_new` | the user's GitHub account is under 30 days old. The `gg login` request is still good: they open the same link, choose Continue with Google, approve, and you run `gg login` again |
 | `invalid_email` | the address given to `gg share` or `gg transfer` is not one. Ask the user again; do not guess |
 
 **Projects and roles**
