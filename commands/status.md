@@ -28,7 +28,7 @@ Two things about reading the result:
   needs attention; do not re-render the table.
 
 If a service is waiting on DNS or a certificate, `gg status` says which side it
-is waiting on — theirs or gagarin's. Say which.
+is waiting on — theirs or Gagarin's. Say which.
 
-If the gagarin MCP tools are connected and `gg` is not installed, use the
+If the Gagarin MCP tools are connected and `gg` is not installed, use the
 `status` tool instead; it reads the same thing.

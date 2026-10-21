@@ -1,6 +1,6 @@
-# The gagarin plugin for Claude Code
+# The Gagarin plugin for Claude Code
 
-[gagarin](https://gagarin.cloud) runs your containers on managed infrastructure.
+[Gagarin](https://gagarin.cloud) runs your containers on managed infrastructure.
 There are no manifest files and no config files: the API is the only way state
 changes, which is why neither you nor your agent can ever be out of sync with
 what is actually running.
@@ -19,7 +19,7 @@ That gives you four things:
   command, every error code, and the mistakes worth not making. It lives in this
   repository, so it can be newer than the `gg` you have; CI checks every command
   it names against the latest released `gg` (see [The skill lives here](#the-skill-lives-here)).
-- **The MCP server** at `https://mcp.gagarin.cloud/mcp` — the gagarin API as
+- **The MCP server** at `https://mcp.gagarin.cloud/mcp` — the Gagarin API as
   tools, and the project's **memory**: the durable facts an agent keeps about a
   codebase so the next session does not rediscover them, reachable only here.
   You sign in with GitHub or Google when Claude Code asks; nothing is installed

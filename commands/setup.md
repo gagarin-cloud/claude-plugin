@@ -61,7 +61,7 @@ conclude the command does not exist.
 ## 5. Tell them what they have
 
 Briefly: `gg` drives everything, and the `gagarin` skill in this plugin
-documents it. If this session also has the gagarin MCP tools connected, mention
+documents it. If this session also has the Gagarin MCP tools connected, mention
 that those cover the same API without a local install — but that **only `gg` can
 build and push an image**, because that needs docker where the source is.
 

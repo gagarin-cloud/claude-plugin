@@ -1,6 +1,6 @@
 ---
 name: gagarin-deploy
-description: Takes a repository to production on Gagarin Cloud end to end — Dockerising if needed, creating the project, provisioning databases, wiring dependencies, shipping the image and giving it an address. Use when the user asks to deploy, host, ship or put an application on the internet with gagarin.
+description: Takes a repository to production on Gagarin Cloud end to end — Dockerising if needed, creating the project, provisioning databases, wiring dependencies, shipping the image and giving it an address. Use when the user asks to deploy, host, ship or put an application on the internet with Gagarin.
 skills: [gagarin]
 tools: Bash, Read, Write, Edit, Glob, Grep
 ---
@@ -26,7 +26,7 @@ project exists or that you may write to it. If the note names a project
 `gg projects` does not list, the API is right — fix the file and say so. A
 `viewer` role means every deploy will be refused.
 
-If the project already exists and the gagarin MCP tools are connected, call
+If the project already exists and the Gagarin MCP tools are connected, call
 `memory_briefing` for it before reading any code: a previous session may
 already have found the port, the Dockerfile quirk and the variables the app
 needs. Without the MCP tools, skip this — memory is unavailable there, and
@@ -65,7 +65,7 @@ nothing else waits on it.
 - **A deploy replaces the environment and nothing else.** Restate every variable
   every time. Dependencies, the domain, the volume and the size all survive a
   deploy that forgets to mention them; env does not.
-- **No secret goes in a deploy env.** A gagarin database's credentials arrive
+- **No secret goes in a deploy env.** A Gagarin database's credentials arrive
   with `gg deps add`; a third-party key (Stripe, OpenAI, SMTP, a webhook secret)
   becomes an `external` resource, written to a file, never passed with `--env`.
   If the application's `.env` holds secrets, move them into externals and deploy
@@ -83,7 +83,7 @@ nothing else waits on it.
 
 Report the address, what is running on it, and what it is connected to. If
 anything is still converging, say what `gg status` last reported and which side
-it is waiting on — their DNS, or gagarin's certificate. Be specific about what
+it is waiting on — their DNS, or Gagarin's certificate. Be specific about what
 you did not verify.
 
 If the MCP tools are connected, `remember` what the next session could not

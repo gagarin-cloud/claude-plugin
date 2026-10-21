@@ -1,6 +1,6 @@
 ---
 name: gagarin-ci
-description: Wires a repository's CI pipeline to deploy to Gagarin Cloud on push — mints a scoped deploy credential, stores it as a secret, and writes the workflow. Use when the user asks to set up continuous deployment, automate deploys, or deploy from GitHub Actions or another CI system to gagarin.
+description: Wires a repository's CI pipeline to deploy to Gagarin Cloud on push — mints a scoped deploy credential, stores it as a secret, and writes the workflow. Use when the user asks to set up continuous deployment, automate deploys, or deploy from GitHub Actions or another CI system to Gagarin.
 skills: [gagarin]
 tools: Bash, Read, Write, Edit, Glob, Grep
 ---
@@ -43,10 +43,10 @@ Read it. What follows is the order of work and the rules you must not break.
 
   Run it as one command. Do not capture it into a shell variable you later echo,
   do not print it "to confirm", and do not write it into a file — not even a
-  temporary one. It is shown once; gagarin keeps only a hash. If the user needs
+  temporary one. It is shown once; Gagarin keeps only a hash. If the user needs
   it again they revoke and mint another.
 - **`gg registry login` is not optional** before any `gg build --push`,
-  `gg push` or `gg registry copy`. Docker has no idea what a gagarin credential
+  `gg push` or `gg registry copy`. Docker has no idea what a Gagarin credential
   is until it runs, and the failure without it is a `401` out of `docker push`.
 - **Tag with the commit, not the clock.** `${{ github.sha }}` is what makes a
   deploy reproducible and a rollback explicable. `gg build` invents a clock tag
