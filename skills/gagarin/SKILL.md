@@ -133,7 +133,9 @@ Five rules, each for a reason:
   not gg, not the MCP server, not the platform. You read it, and then you still
   name the project in every command and every tool call, so the target stays
   visible in the command.
-- **Identity only, never desired state.** No services, ports, env or domains:
+- **Identity only, never desired state.** The one other key is `"tour"`, the
+  onboarding steps the human has already been shown (see "After the first
+  address"). No services, ports, env or domains:
   gagarin holds those, and a copy in the repository would be the stale one. If
   the file disagrees with `gg projects`, the API is right — fix the file and
   tell the user.
@@ -513,6 +515,40 @@ gg deploy shop/web:8080 web:v3           release one that already exists
 
 That is CI, and it is also the only way to run an image you did not just build —
 one copied in with `gg registry copy`, or a tag somebody else pushed.
+
+## After the first address: show them around
+
+A first deploy that answers is where most people stop, and the three things that
+keep a project healthy are one step past it. So once `gg status` shows the first
+service answering, give the human its URL, and then offer one next step per
+turn, in this order:
+
+1. **The graph.** Point them at `https://my.gagarin.cloud/projects/<id>`: what
+   is running, and what may reach what. Nothing to run, so this one is a
+   sentence and a link.
+2. **Alerts.** Run `gg alerts P` first. If they are off, ask whether the human
+   wants a push when the service goes down. If yes, they open the console on
+   their phone and allow notifications (see "Alerts"); then run
+   `gg alerts on P` and `gg alerts test P`.
+3. **Memory.** `remember` two or three facts this session would otherwise lose:
+   why that port, why that size, what the Dockerfile works around. Then tell
+   the human the project keeps them, and the next session starts from them.
+
+Rules, each for a reason:
+
+- **One step per turn, one sentence and one action.** A wall of next steps
+  reads as homework, and the human came for an address.
+- **Stop when they say no or change the subject.** Do not bring a skipped step
+  back later in the same session.
+- **Never turn alerts on without asking.** They reach a person's phone.
+- **Skip what is done, and read "done" from state.** `gg alerts P` says whether
+  alerts are on; `memory_briefing` says whether the project already holds
+  memories. What was said earlier in a conversation is not state.
+- **Note what they have seen in `.gagarin.json`.** The graph leaves no trace you
+  can read back, so record each step as it happens: add its name to `"tour"`,
+  `{ "project": { … }, "tour": ["graph", "alerts", "memory"] }`. A step in the
+  list is not offered again, in this session or the next. Commit it with the
+  rest of the note.
 
 ## Services
 
