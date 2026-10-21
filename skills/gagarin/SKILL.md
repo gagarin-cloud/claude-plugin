@@ -238,6 +238,14 @@ profile; do not edit their shell configuration yourself.
 needs `buildx`). Nothing else needs it. A machine with no docker can still
 deploy an image that is already in the registry, roll back, and read state.
 
+**Run `docker info` before the first `gg ship`.** If it fails, ask your human to
+start Docker Desktop, OrbStack or colima (or install one) and wait until
+`docker info` succeeds; do not start or install it yourself. gg v0.51.0 and
+later check this before any request and refuse with `docker_not_installed`,
+`docker_not_running` or `docker_permission_denied`, each with the fix in its
+hint. Relay the hint; do not retry until the human says docker is up, and do not
+run gg with `sudo` to get round a permission error.
+
 This skill is not part of the binary. It lives in
 `gagarin-cloud/claude-plugin` and is installed separately — in Claude Code as a
 plugin, elsewhere with `npx skills add gagarin-cloud/claude-plugin -g`. So it can
@@ -1938,6 +1946,9 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | code | what to do |
 |---|---|
 | `image_required` | `gg push` one first, or use `gg ship` |
+| `docker_not_installed` | from gg itself, before any request: there is no `docker` (or, for `gg registry copy`, no `buildx`). Ask your human to install Docker Desktop, OrbStack or colima (Docker Engine on Linux). An image already in the registry needs no docker: `gg deploy` it |
+| `docker_not_running` | docker is installed but its daemon did not answer; the message names the socket. Ask your human to start it and run `gg ship` again once `docker info` succeeds |
+| `docker_permission_denied` | this user cannot reach the daemon (Linux). Ask your human to add the user to the `docker` group and log in again. Never run gg with `sudo` |
 | `image_not_yours` | the image is not in this project's registry space. Build or push into this project, or `gg registry copy` it in |
 | `invalid_digest` | pass what `docker push` reported, or leave it out |
 | `invalid_port` | set the port the container actually listens on |
