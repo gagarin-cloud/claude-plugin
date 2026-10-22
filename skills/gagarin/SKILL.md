@@ -1,12 +1,12 @@
 ---
 name: gagarin
-description: Deploy and operate applications on gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, start jobs from an application's own code with the Go, Node or Python SDK, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
+description: Deploy and operate applications on Gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, start jobs from an application's own code with the Go, Node or Python SDK, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions Gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
 ---
 
-# Deploying with gagarin
+# Deploying with Gagarin
 
 Gagarin runs your services. You drive it with the `gg` CLI, a thin wrapper over
-the gagarin API. There is exactly one way to change anything: call the API.
+the Gagarin API. There is exactly one way to change anything: call the API.
 There is no manifest file and no config file. The one file you will commit is
 a note of which project the repository is, and it changes nothing — see "Which
 project this repository is".
@@ -85,7 +85,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg status PROJECT` | desired vs actual, addresses, sizes, today's cost |
 | `gg logs P/SVC` | recent logs |
 | `gg history P/SVC` / `gg rollback P/SVC [--to N]` | every deploy; put one back |
-| `gg alerts on P` / `gg alerts test P` / `gg alerts P` / `gg alerts off P` | push-notify a member's own devices when a service goes down |
+| alerts (no gg command) | push-notify a member's own devices when a service goes down; the human turns it on with the switch at my.gagarin.cloud/projects/P/alerts, which also sends a test. See Alerts |
 | `gg referral` | the account's invite link and code (once it has topped up), and who signed up through it and what it earned; in MCP, `referrals` |
 | `gg members P` / `gg share P EMAIL [--role viewer]` / `gg unshare P EMAIL` | who can reach it |
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
@@ -104,7 +104,7 @@ once, and each has a different next step:
 
 | what happens | what it means | do this |
 |---|---|---|
-| the shell cannot find `gg` | not installed | see "Installing gg" — unless you already hold gagarin MCP tools, in which case call `whoami` there and read "If you cannot install gg" for what they cannot do |
+| the shell cannot find `gg` | not installed | see "Installing gg" — unless you already hold Gagarin MCP tools, in which case call `whoami` there and read "If you cannot install gg" for what they cannot do |
 | `[unauthorized]`, or it says there are no credentials | installed, no access | see "Getting access" |
 | it names an account | ready | carry on; `gg projects` says what already exists |
 
@@ -133,8 +133,10 @@ Five rules, each for a reason:
   not gg, not the MCP server, not the platform. You read it, and then you still
   name the project in every command and every tool call, so the target stays
   visible in the command.
-- **Identity only, never desired state.** No services, ports, env or domains:
-  gagarin holds those, and a copy in the repository would be the stale one. If
+- **Identity only, never desired state.** The one other key is `"tour"`, the
+  onboarding steps the human has already been shown (see "After the first
+  address"). No services, ports, env or domains:
+  Gagarin holds those, and a copy in the repository would be the stale one. If
   the file disagrees with `gg projects`, the API is right — fix the file and
   tell the user.
 - **Prefer the id in calls.** Names are unique only within an account, so a
@@ -157,7 +159,7 @@ Every project has a memory: small durable facts about the codebase that the
 next session would otherwise have to rediscover — an overview, the
 architecture, a decision and why it went that way, a convention, a gotcha, a
 howto, a reference, the state of a piece of work. It is reachable only through
-gagarin's MCP server (see "If you cannot install gg"); there is no `gg` command
+Gagarin's MCP server (see "If you cannot install gg"); there is no `gg` command
 for it. Every memory tool takes the project, which is what `.gagarin.json` is
 for.
 
@@ -178,7 +180,7 @@ for.
   variables the application insists on. Not what the repository already says,
   not what is true only of this conversation, and **never a credential or a
   secret** — not as a value, not in a tag. Title, body and source are
-  encrypted at rest with a key gagarin holds; tags, file paths and kind are
+  encrypted at rest with a key Gagarin holds; tags, file paths and kind are
   not.
 - **A `remember` refused with a list of near-duplicates** is telling you the
   fact is already there. Update or link those; do not reword it to get past
@@ -193,7 +195,7 @@ for.
 
 ## Installing gg
 
-If your client is already connected to gagarin's MCP server you may not need
+If your client is already connected to Gagarin's MCP server you may not need
 `gg` at all — read "If you cannot install gg" below first, because the one thing
 it cannot do is build an image, and that is often the whole task.
 
@@ -317,7 +319,7 @@ If the second run fails:
 - `[access_denied]` — the user declined on the page, and the request is gone.
   Ask them why before running it again, and do not retry on your own.
 - `[github_account_too_new]` — the user signed in with a GitHub account under
-  30 days old, which gagarin does not accept yet. The request is kept: tell them
+  30 days old, which Gagarin does not accept yet. The request is kept: tell them
   to open the same link and choose **Continue with Google**, then run `gg login`
   again once they say they approved.
 
@@ -330,7 +332,7 @@ between an agent and an account. The account is whichever one they sign in to;
 if they use more than one, let them pick.
 
 The moment an account is created it gets its balance and the address the
-provider verified joins gagarin's customer list; https://gagarin.cloud/privacy
+provider verified joins Gagarin's customer list; https://gagarin.cloud/privacy
 says what that list is for.
 
 You never handle the credential yourself. Do not read that file, do not echo it,
@@ -339,7 +341,7 @@ make `gg` work, you are doing this wrong. The exceptions are CI and an
 application that starts jobs, and each gets its own — "Setting up CI" below, and
 "From code: the SDK".
 
-If `docker` was installed after gagarin, `gg registry login` does that half on
+If `docker` was installed after Gagarin, `gg registry login` does that half on
 its own.
 
 ## Setting up CI
@@ -370,7 +372,7 @@ What you just minted is **deliberately weaker than what you hold**:
 - It **expires**: 90 days by default, 365 maximum, and there is no never.
 - It **cannot mint another**, so a leaked one cannot issue its own replacements
   while you are busy revoking it.
-- It is **shown once**. gagarin keeps a hash. Lose it and you revoke it and mint
+- It is **shown once**. Gagarin keeps a hash. Lose it and you revoke it and mint
   another; no command reads one back.
 
 ### 2. Give it to the pipeline
@@ -417,7 +419,7 @@ Six things about that are load-bearing:
 
 - **`gg registry login` is not optional.** `gg build --push`, `gg push` and
   `gg registry copy` all shell out to docker, and docker has no idea what a
-  gagarin credential is until that runs. The failure without it is a `401` out
+  Gagarin credential is until that runs. The failure without it is a `401` out
   of `docker push`, whose hint says exactly this.
 - **Tag with the commit, not with the clock.** `gg build` invents a clock tag
   when you give it none, which is right for a person shipping and wrong for a
@@ -481,7 +483,7 @@ Notes on each step, in the order they bite:
   `gg projects` says the project already exists.
 - **A Dockerfile per service.** Gagarin deploys images, so a service without one
   cannot be deployed. Writing it is a normal part of this job. Do not set a
-  platform or architecture: gagarin reports what its own nodes run, and gg builds
+  platform or architecture: Gagarin reports what its own nodes run, and gg builds
   for that.
 - **Run `gg ship` from the directory holding that service's Dockerfile**, or
   point `--context` at it — `gg ship shop/api:8080 --context ./api` from a
@@ -514,6 +516,47 @@ gg deploy shop/web:8080 web:v3           release one that already exists
 That is CI, and it is also the only way to run an image you did not just build —
 one copied in with `gg registry copy`, or a tag somebody else pushed.
 
+## After the first address: show them around
+
+A first deploy that answers is where most people stop, and the three things that
+keep a project healthy are one step past it. So once `gg status` shows the first
+service answering, give the human its URL, and then offer one next step per
+turn, in this order:
+
+1. **The graph.** Point them at `https://my.gagarin.cloud/projects/<id>`: what
+   is running, and what may reach what. Nothing to run, so this one is a
+   sentence and a link.
+2. **Alerts.** Ask whether the human wants a push on their phone when the
+   service goes down, a deploy will not start, or a container keeps crashing.
+   If yes, they open `https://my.gagarin.cloud/projects/<id>/alerts` on that
+   phone and turn on "Notify me about this project", which allows notifications
+   and opts them in at once; the same page sends a test. On an iPhone they add
+   the console to the Home Screen first and open it from there. There is no gg
+   command for alerts. With the MCP server connected you may check with
+   `alerts` first, and send `test_alerts` once they say it is on.
+3. **Memory.** `remember` two or three facts this session would otherwise lose:
+   why that port, why that size, what the Dockerfile works around. Then tell
+   the human the project keeps them, and the next session starts from them.
+
+Rules, each for a reason:
+
+- **One step per turn, one sentence and one action.** A wall of next steps
+  reads as homework, and the human came for an address.
+- **Stop when they say no or change the subject.** Do not bring a skipped step
+  back later in the same session.
+- **Alerts are the human's switch, not yours.** They reach a person's phone,
+  and only that person's browser can allow them.
+- **Skip what is done, and read "done" from state.** With the MCP server,
+  `alerts` says whether alerts are on and how many devices they reach; without
+  it, the human's answer is the state. `memory_briefing` says whether the
+  project already holds memories. What was said earlier in a conversation is
+  not state.
+- **Note what they have seen in `.gagarin.json`.** The graph leaves no trace you
+  can read back, so record each step as it happens: add its name to `"tour"`,
+  `{ "project": { … }, "tour": ["graph", "alerts", "memory"] }`. A step in the
+  list is not offered again, in this session or the next. Commit it with the
+  rest of the note.
+
 ## Services
 
 A service is a container image that runs, with a port, a size, an environment,
@@ -540,7 +583,7 @@ gg ship   shop/web:8080 --env-file .env
   without it. To keep one, keep passing it.
 - The file supplies **values only**. It cannot name services, set ports or say
   what is public. If you find yourself wanting to put deployment structure in a
-  file, stop — gagarin holds that itself.
+  file, stop — Gagarin holds that itself.
 
 Environment is the one thing a deploy still replaces wholesale, because it is
 part of what a revision ran with and is what a rollback puts back. Everything
@@ -557,7 +600,7 @@ belongs on the graph instead:
 
 | it is | where it goes |
 |---|---|
-| a gagarin database, cache, queue or bucket | `gg deps add P/SVC RESOURCE`. The credentials arrive by themselves, and are never copied into env |
+| a Gagarin database, cache, queue or bucket | `gg deps add P/SVC RESOURCE`. The credentials arrive by themselves, and are never copied into env |
 | a third-party key (Stripe, OpenAI, SMTP, a webhook secret) | `gg resource add P/NAME external --env-file .env.NAME`, then `gg deps add` |
 | config several services share, or that should change without a deploy | an `external` too, even when it is not secret |
 
@@ -776,8 +819,8 @@ same image, environment, size, timeout and graph — with one more property.
   what it wrote.
 - **A failed firing alerts** whoever opted in to the project's alerts, once,
   and a later firing that succeeds resolves it. Nobody else is watching a run
-  at three in the morning, so suggest `gg alerts on PROJECT` when you set up a
-  schedule for someone who has them off.
+  at three in the morning, so when you set up a schedule for someone who has
+  them off, suggest the switch at `https://my.gagarin.cloud/projects/P/alerts`.
 - Over MCP, `run` takes `schedule`, `time_zone` and `ttl_seconds`, and `status`
   carries `schedule`, `time_zone` and `actual.schedule` (`next_at`,
   `last_scheduled_at`, `suspended`).
@@ -959,7 +1002,7 @@ times out, from every service, and it cannot be opened per-account.
 So **do not build anything that speaks SMTP.** If the user wants their
 application to send email, reach for a provider's HTTPS API — Resend, Postmark,
 SendGrid, SES, any of them. That is a normal way to send mail, not a workaround,
-and it is what gagarin itself does. Prefer the provider's official SDK to
+and it is what Gagarin itself does. Prefer the provider's official SDK to
 hand-rolled HTTP.
 
 The reason, if the user asks: a service that can open those ports can relay spam
@@ -1008,7 +1051,7 @@ for — an honesty you can pass on when somebody asks.
     URL; the official **Go and Rust clients speak only gRPC** and want the host
     and 6334. Both are published so neither has to be guessed.
   - **There is no MongoDB here, and no document store either.** If a user wants
-    documents rather than vectors, gagarin has no type for it — run one as an
+    documents rather than vectors, Gagarin has no type for it — run one as an
     ordinary service with a volume.
 
   Gagarin ran a `ferretdb` type from 2026-09-04 to 2026-09-06 and it is **gone**:
@@ -1050,7 +1093,7 @@ for — an honesty you can pass on when somebody asks.
   refused with `not_a_service`, which is telling you the name is already a
   database. Nor can a resource declare dependencies: it is reached, it does not
   reach.
-- **A managed resource cannot be rolled back**, because gagarin mints its
+- **A managed resource cannot be rolled back**, because Gagarin mints its
   credentials and there is no earlier value of the user's to go back to. An
   **external can** — its values are theirs — and `gg rollback P/NAME` is how a
   config change is undone. See the external section below. An `s3` cannot
@@ -1140,7 +1183,7 @@ Four rules that follow, and each one fails quietly if you get it wrong:
   service you did not declare.
 - **`gg resource secrets` is for reading the values from outside the graph** —
   checking what an application is being handed, or wiring up a client that runs
-  outside gagarin. The values name the in-project host, which this machine
+  outside Gagarin. The values name the in-project host, which this machine
   cannot reach: to actually connect from here, `gg connect` opens a tunnel and
   prints them rewritten for it. You do not need either to connect a service in
   the same project. Treat the output as a live credential: do not echo it into
@@ -1197,7 +1240,7 @@ db is a postgres. The tunnel is up:
 
 ### `external`: a third-party key as a node on the graph
 
-An OpenAI account, a Stripe key, a bucket somewhere else. Not something gagarin
+An OpenAI account, a Stripe key, a bucket somewhere else. Not something Gagarin
 runs — something your services need a credential for.
 
 ```
@@ -1330,7 +1373,7 @@ oversights:
 ### `s3`: a bucket for files
 
 User uploads, generated files, ML artifacts, static assets an app serves
-itself. gagarin's object storage, as an S3-compatible bucket that is private
+itself. Gagarin's object storage, as an S3-compatible bucket that is private
 until you say otherwise.
 
 ```
@@ -1346,9 +1389,9 @@ an S3 client takes these five settings separately. Any S3 client library works
 will look for AWS. The endpoint is `https`.
 
 - **`--size`, `--storage` and `--env` are all refused** (`no_size`,
-  `no_storage`, `no_env`). A gagarin without object storage configured answers
+  `no_storage`, `no_env`). A Gagarin without object storage configured answers
   `object_storage_unavailable` (HTTP 501); report it.
-- **It runs nothing.** No pod, no port, no volume, no logs. gagarin mints its
+- **It runs nothing.** No pod, no port, no volume, no logs. Gagarin mints its
   key, like postgres — unlike an external.
 - **A bucket is private by default.** Only its own key can read or write it;
   another project's key cannot.
@@ -1380,7 +1423,7 @@ will look for AWS. The endpoint is `https`.
   internet, not inside the cluster, so — exactly like an external — the
   declaration hands over the key and nothing more. It is not a firewall. `gg
   status` marks these edges `◇`.
-- **There are no backups.** Objects sit on durable storage but gagarin takes no
+- **There are no backups.** Objects sit on durable storage but Gagarin takes no
   copy, and `gg resource backup` answers `backup_unsupported`. If losing the
   data would matter, keep a copy somewhere else.
 - **`gg connect` does not work**: it publishes no port, and `gg` says so. Read
@@ -1389,7 +1432,7 @@ will look for AWS. The endpoint is `https`.
   rounded up to whole GB and prorated per minute. There is no running charge,
   and requests and traffic are not billed.
 - **Not deployable, not rollback-able, no `gg domain`.** `gg deploy` over it is
-  `not_a_service`, as is `gg rollback` (gagarin mints its key). Its public
+  `not_a_service`, as is `gg rollback` (Gagarin mints its key). Its public
   address comes from `gg resource public`, not from a domain.
 - **Destroying it** needs the human's email approval, is refused while anything
   still declares it, cuts the key off at once, and permanently deletes every
@@ -1410,7 +1453,7 @@ command names what it rolled. Nothing but variable *names* is printed;
 `gg resource secrets` reads the values.
 
 **Who supplies the new value is the only difference between the types.** For
-`postgres`, `qdrant`, `valkey`, `iggy` and `s3`, gagarin mints one and `--env` is refused — a
+`postgres`, `qdrant`, `valkey`, `iggy` and `s3`, Gagarin mints one and `--env` is refused — a
 password you chose is one the running server has never heard of. For an
 `external` the values are yours, so one of `--set`, `--unset`, `--env-file` or
 `--env` is required.
@@ -1459,7 +1502,7 @@ what a half-failed rotation left behind. There is no half.
 
 **Rotate after a leak, and say so plainly.** If a key has been in a chat log, a
 commit or a screenshot, this is the fix and it is one command. For an external,
-note that gagarin forgets the old value but cannot *revoke* it — that is a thing
+note that Gagarin forgets the old value but cannot *revoke* it — that is a thing
 to do in the third party's own console, and the user has to do it.
 
 ### Backup and recovery
@@ -1556,13 +1599,13 @@ gg domain add shop/web shop.example.com    a name the user owns, as well
 gg domain ls  shop                         every address, and who each is waiting on
 ```
 
-The generated one is idempotent and instant: gagarin holds the wildcard record
+The generated one is idempotent and instant: Gagarin holds the wildcard record
 and the wildcard certificate, so there is nothing to coordinate and nobody to
 wait for.
 
-**A name the user owns is two steps, and only the first is gagarin's.** The
+**A name the user owns is two steps, and only the first is Gagarin's.** The
 command makes the service answer for the name; making the name *resolve* here is
-a DNS record the user creates at their registrar, and gagarin cannot do it for
+a DNS record the user creates at their registrar, and Gagarin cannot do it for
 them. The command prints the exact record — pass it on verbatim rather than
 paraphrasing it.
 
@@ -1575,8 +1618,8 @@ on their side. `gg status` says which of the two of you it is waiting on:
 | reading | who acts |
 |---|---|
 | waiting for DNS | **them** — the record does not exist yet |
-| DNS points elsewhere | **them** — it resolves, but not to gagarin |
-| issuing certificate | gagarin — nothing for them to do |
+| DNS points elsewhere | **them** — it resolves, but not to Gagarin |
+| issuing certificate | Gagarin — nothing for them to do |
 | ok | nobody |
 
 The generated address only ever reads `ok` or `issuing certificate`. It is never
@@ -1590,7 +1633,7 @@ waiting on the user, because there is nothing for them to do about it.
 - **A custom domain brings the generated one with it.** Claiming a name for a
   private service makes it public in the same call. Say out loud that you are
   putting it on the internet.
-- **One domain, one service, across all of gagarin.** A name somebody else holds
+- **One domain, one service, across all of Gagarin.** A name somebody else holds
   is refused, and the refusal does not say who holds it.
 - **An apex domain gets an A record, not a CNAME** — DNS does not permit a CNAME
   at an apex. The command prints the right one; do not "correct" it.
@@ -1608,7 +1651,7 @@ is invisible from the terminal and obvious to whoever was using the address. Do
 not run either unless the user asked for it in those words.
 
 Releasing the generated address while a custom name is still declared is refused
-(`domain_attached`) — that would leave their DNS pointing at a host gagarin no
+(`domain_attached`) — that would leave their DNS pointing at a host Gagarin no
 longer serves. Release the custom name first.
 
 ## Reading state
@@ -1641,10 +1684,10 @@ What to read, in the order it matters:
      shows `◌` and `0/0`, and writes are refused with `project_suspended`. If the
      reason is credit, the user fixes it at https://my.gagarin.cloud/billing and
      services restart by themselves within a few minutes. Anything else is a
-     decision gagarin made, and only support can lift it — do not tell the user
+     decision Gagarin made, and only support can lift it — do not tell the user
      to add credit, because it will not help. **Nothing has been deleted**: the
      data, the addresses and the certificates are all still there.
-   - **"the reconciler last ran … ago"** — gagarin reporting on itself. The rows
+   - **"the reconciler last ran … ago"** — Gagarin reporting on itself. The rows
      are still an accurate reading of the cluster, but nothing is closing the gap
      between them and what was asked for. Tell the user; there is nothing an
      agent can do from here.
@@ -1699,7 +1742,7 @@ When somebody wants to understand how their services fit together, point them at
 the project's page on https://my.gagarin.cloud — its right half is a live
 dependency graph. That is for the human; read the plain output yourself.
 
-Describe services at the altitude gagarin does: "web is public on port 8080 at
+Describe services at the altitude Gagarin does: "web is public on port 8080 at
 <url>; worker is private." Give every address a service answers on, not just one.
 Do not introduce Kubernetes vocabulary — namespaces, ingresses, pods and service
 accounts are not part of this model, and mentioning them is a regression.
@@ -1736,23 +1779,26 @@ A project can tell its members when something breaks. Alerts are Web Push
 notifications from the console (https://my.gagarin.cloud), which is also a PWA.
 Each member opts in per project for themselves, viewers included, and the
 notifications go only to that member's own devices. There is no topic, server
-or token to set up:
+or token to set up.
 
-```
-gg alerts on shop        # opt the caller in; says how many devices they have
-gg alerts test shop      # sends a test push to the caller's own devices
-gg alerts off shop       # opt the caller out
-```
+**A human turns alerts on, in the console.** The project's Alerts tab,
+`https://my.gagarin.cloud/projects/P/alerts`, has one switch, "Notify me about
+this project", which allows notifications on that device and opts the member in
+at once, and sends a test from the same page. Point the human there, on the
+phone they want the push on. Turning the switch off there opts them out.
 
-`gg alerts P` says whether the caller is opted in, how many devices they have,
-and the last few notifications. In MCP, `set_alerts` takes only the project. Opting in is per caller, so one
-member turning alerts on does not turn them on for anyone else.
+There is no gg command for alerts: talking the human through that page is your
+part. With the MCP server connected, `alerts` says whether the caller is opted
+in, how many devices they have, and the last few notifications; `test_alerts`
+sends a test once they say it is on; each takes only the project. Opting in is
+per member, so one member turning alerts on does not turn them on for anyone
+else.
 
 **An agent cannot add a device.** A device exists only once a human allows
 notifications in a browser, at `https://my.gagarin.cloud/projects/P/alerts`. On
 an iPhone the app must first be added to the Home Screen (Share, then Add to
 Home Screen) and opened from there, or the browser will not offer push at all.
-If `gg alerts on` reports no devices, hand the human that page. Then they hear
+If the human has no device yet, hand them that page. Then they hear
 when a service has been down for three minutes, when a deploy will not start
 (the previous revision keeps serving), and when a container crashes and
 restarts, once when it starts and once when it ends, never on repeat. The
@@ -1785,7 +1831,7 @@ granted here, it is offered and accepted — see below.
 - `gg share` with no `--role` grants **editor**, which can deploy over whatever
   is running. If the user asked for "read access" or "let them look at the logs",
   pass `--role viewer`.
-- Sharing with somebody who has never used gagarin is allowed — the access waits
+- Sharing with somebody who has never used Gagarin is allowed — the access waits
   for them and lands the moment they sign in with a GitHub or Google account
   whose verified email is that address. **Nothing is emailed to them**, so tell
   the user to let them know; they get in by running `gg login` and approving it,
@@ -1808,7 +1854,7 @@ gg members shop                      shows an offer that is standing
 It is an offer, never an assignment, and both halves need a human:
 
 1. The **owner** runs `gg transfer` and gets `approval_required` — they click a
-   button in their own inbox, signed in to gagarin, and you run the same command
+   button in their own inbox, signed in to Gagarin, and you run the same command
    again. This is the
    same human gate `gg destroy` uses, for the same reason: a handover cannot be
    undone by the person who started it.
@@ -1935,9 +1981,9 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 
 | code | what to do |
 |---|---|
-| `alerts_off` | `gg alerts test` before alerts are on. `gg alerts on P` first |
-| `ntfy_removed` | alerts no longer go to ntfy; `server`, `topic` and `token` are refused. Run `gg alerts on P` with no flags |
-| `no_devices` | `gg alerts test` and the caller has no device. A human allows notifications at https://my.gagarin.cloud/projects/P/alerts (iPhone: add the app to the Home Screen first) |
+| `alerts_off` | `test_alerts` before alerts are on. The human turns them on with the switch at https://my.gagarin.cloud/projects/P/alerts |
+| `ntfy_removed` | alerts no longer go to ntfy; `server`, `topic` and `token` are refused. The human turns alerts on in the console |
+| `no_devices` | `test_alerts` and the caller has no device. The human allows notifications at https://my.gagarin.cloud/projects/P/alerts (iPhone: add the app to the Home Screen first) |
 | `invalid_subscription` | the browser's push subscription was refused (not https, not a known push service, bad keys). The human re-enables notifications in the console |
 | `push_unconfigured` | the platform has no push keys yet. Nothing to fix on your side; tell the user |
 
@@ -1968,7 +2014,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `invalid_size` | sizes are `s`, `m`, `l`; the message names the account's cap |
 | `no_such_revision` | `gg history` lists the ones it had |
 | `nothing_to_roll_back_to` | deployed only once. Not a bad call, just nothing to do |
-| `not_a_service` | that name is a resource or a job — you tried to deploy a service over it, give it an address, or roll back a managed resource whose credentials gagarin mints, s3 included (an external can be rolled back) |
+| `not_a_service` | that name is a resource or a job — you tried to deploy a service over it, give it an address, or roll back a managed resource whose credentials Gagarin mints, s3 included (an external can be rolled back) |
 | `not_a_resource` | that name is a service. `gg status` shows which is which |
 
 **The graph**
@@ -1995,7 +2041,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `conflicting_env` | `--env`/`--env-file` replace the bundle and `--set`/`--unset` amend it: use one or the other |
 | `no_such_key` | that external does not publish the key named in `--unset`. `gg resource secrets` lists what it does — and the name goes in without the resource's prefix |
 | `no_env` | this type mints its own credentials (s3 included), so there is nothing to pass or amend; `gg resource secrets` reads them |
-| `object_storage_unavailable` | HTTP 501: this gagarin has no object storage configured, so no `s3`. Report it to the user |
+| `object_storage_unavailable` | HTTP 501: this Gagarin has no object storage configured, so no `s3`. Report it to the user |
 | `not_a_bucket` | HTTP 409: only an `s3` can be made public. A service gets an address with `gg domain add` |
 | `publish_failed` | HTTP 502: **nothing changed** — retry `gg resource public` or `private` |
 | `rotate_failed` | **nothing changed** — the old credential still works. Check `gg status` for a resource that is not running, then retry |
@@ -2008,7 +2054,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | code | what to do |
 |---|---|
 | `backup_unsupported` | only postgres, qdrant and iggy have backups; an s3 bucket is on durable storage but never copied. If losing the data would matter, keep a copy elsewhere |
-| `backup_unconfigured` | this gagarin runs without a backup bucket. Report it to the user |
+| `backup_unconfigured` | this Gagarin runs without a backup bucket. Report it to the user |
 | `restore_name_taken` | a restore creates the resource it fills. Give it a name nothing has yet |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
 | `backup_type_mismatch` | that key was written by no type that has backups — check it against `gg resource backups` |
@@ -2049,11 +2095,11 @@ already knows.
 **This will be refused the first time, and that is not a bug.** Your credential
 can deploy but not delete, so destroying anything — and the other irreversible
 acts, `gg domain rm` and `gg deps rm` — needs a human every time the approval
-window has lapsed. You get `approval_required`, and gagarin emails the
+window has lapsed. You get `approval_required`, and Gagarin emails the
 account owner. Then:
 
 1. Tell the user what you are about to delete, and that you have asked them to
-   approve it by email — the button asks them to sign in to gagarin first if
+   approve it by email — the button asks them to sign in to Gagarin first if
    they are not. Pass on the code from the `fix_hint`.
 2. Wait for them to say they clicked it. Do not poll in a loop.
 3. Run the same command again.
@@ -2074,7 +2120,7 @@ gg eject shop -o project.yaml
 
 Writes the Kubernetes manifests for the whole project — namespace, and per
 service its Deployment, Service, Ingress, NetworkPolicy, environment Secret and
-volume claim. These are not a description of what gagarin runs; they are the
+volume claim. These are not a description of what Gagarin runs; they are the
 objects it runs, so `kubectl apply -f` on any cluster with an ingress controller
 reproduces the project.
 
@@ -2082,7 +2128,7 @@ Owner only, because the file holds every service's environment in the clear. It
 is written mode 0600 and you should treat it as a credential.
 
 Three things it deliberately does not contain, all explained in its own header:
-the **images**, which are still in gagarin's registry and have to be pulled and
+the **images**, which are still in Gagarin's registry and have to be pulled and
 pushed somewhere the user controls; the **registry pull secret**, which is a
 live credential; and the values from any **external resource**, which are
 third-party keys somebody else issued, and an **s3 bucket's** keys, which like an
@@ -2097,20 +2143,20 @@ the file ends up. `gg eject shop --with-secrets -o project.yaml` includes them,
 for a migration happening now into a file that gets deleted; say what that means
 before running it with the flag.
 
-Offer this without being defensive when somebody asks what happens if gagarin
+Offer this without being defensive when somebody asks what happens if Gagarin
 goes away. It is a real answer and it is meant to be used.
 
-## Things gagarin deliberately does not do
+## Things Gagarin deliberately does not do
 
 Not missing features. Do not attempt them and do not suggest workarounds:
 
 - deploy from a git repository or a git URL
 - read deployment configuration from a file in the repo — `--env-file` supplies
-  values, and is the only file gagarin will ever read
+  values, and is the only file Gagarin will ever read
 - interpolate variables into each other
-- pull images from Docker Hub, GHCR or any registry other than gagarin's at run
+- pull images from Docker Hub, GHCR or any registry other than Gagarin's at run
   time (`gg registry copy` brings one in first)
 - expose Kubernetes, cloud provider or networking primitives
 - open the mail ports
 - infer a project from the current directory, or from anything else —
-  `.gagarin.json` included: you read that, gagarin never does
+  `.gagarin.json` included: you read that, Gagarin never does
