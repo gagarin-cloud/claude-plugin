@@ -85,7 +85,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg status PROJECT` | desired vs actual, addresses, sizes, today's cost |
 | `gg logs P/SVC` | recent logs |
 | `gg history P/SVC` / `gg rollback P/SVC [--to N]` | every deploy; put one back |
-| `gg alerts on P` / `gg alerts test P` / `gg alerts P` / `gg alerts off P` | push-notify a member's own devices when a service goes down |
+| alerts (no gg command) | push-notify a member's own devices when a service goes down; the human turns it on with the switch at my.gagarin.cloud/projects/P/alerts, which also sends a test. See Alerts |
 | `gg referral` | the account's invite link and code (once it has topped up), and who signed up through it and what it earned; in MCP, `referrals` |
 | `gg members P` / `gg share P EMAIL [--role viewer]` / `gg unshare P EMAIL` | who can reach it |
 | `gg transfer P EMAIL` | offer the project, and its bill, to a member (they accept by email) |
@@ -133,7 +133,9 @@ Five rules, each for a reason:
   not gg, not the MCP server, not the platform. You read it, and then you still
   name the project in every command and every tool call, so the target stays
   visible in the command.
-- **Identity only, never desired state.** No services, ports, env or domains:
+- **Identity only, never desired state.** The one other key is `"tour"`, the
+  onboarding steps the human has already been shown (see "After the first
+  address"). No services, ports, env or domains:
   Gagarin holds those, and a copy in the repository would be the stale one. If
   the file disagrees with `gg projects`, the API is right — fix the file and
   tell the user.
@@ -514,6 +516,47 @@ gg deploy shop/web:8080 web:v3           release one that already exists
 That is CI, and it is also the only way to run an image you did not just build —
 one copied in with `gg registry copy`, or a tag somebody else pushed.
 
+## After the first address: show them around
+
+A first deploy that answers is where most people stop, and the three things that
+keep a project healthy are one step past it. So once `gg status` shows the first
+service answering, give the human its URL, and then offer one next step per
+turn, in this order:
+
+1. **The graph.** Point them at `https://my.gagarin.cloud/projects/<id>`: what
+   is running, and what may reach what. Nothing to run, so this one is a
+   sentence and a link.
+2. **Alerts.** Ask whether the human wants a push on their phone when the
+   service goes down, a deploy will not start, or a container keeps crashing.
+   If yes, they open `https://my.gagarin.cloud/projects/<id>/alerts` on that
+   phone and turn on "Notify me about this project", which allows notifications
+   and opts them in at once; the same page sends a test. On an iPhone they add
+   the console to the Home Screen first and open it from there. There is no gg
+   command for alerts. With the MCP server connected you may check with
+   `alerts` first, and send `test_alerts` once they say it is on.
+3. **Memory.** `remember` two or three facts this session would otherwise lose:
+   why that port, why that size, what the Dockerfile works around. Then tell
+   the human the project keeps them, and the next session starts from them.
+
+Rules, each for a reason:
+
+- **One step per turn, one sentence and one action.** A wall of next steps
+  reads as homework, and the human came for an address.
+- **Stop when they say no or change the subject.** Do not bring a skipped step
+  back later in the same session.
+- **Alerts are the human's switch, not yours.** They reach a person's phone,
+  and only that person's browser can allow them.
+- **Skip what is done, and read "done" from state.** With the MCP server,
+  `alerts` says whether alerts are on and how many devices they reach; without
+  it, the human's answer is the state. `memory_briefing` says whether the
+  project already holds memories. What was said earlier in a conversation is
+  not state.
+- **Note what they have seen in `.gagarin.json`.** The graph leaves no trace you
+  can read back, so record each step as it happens: add its name to `"tour"`,
+  `{ "project": { … }, "tour": ["graph", "alerts", "memory"] }`. A step in the
+  list is not offered again, in this session or the next. Commit it with the
+  rest of the note.
+
 ## Services
 
 A service is a container image that runs, with a port, a size, an environment,
@@ -776,8 +819,8 @@ same image, environment, size, timeout and graph — with one more property.
   what it wrote.
 - **A failed firing alerts** whoever opted in to the project's alerts, once,
   and a later firing that succeeds resolves it. Nobody else is watching a run
-  at three in the morning, so suggest `gg alerts on PROJECT` when you set up a
-  schedule for someone who has them off.
+  at three in the morning, so when you set up a schedule for someone who has
+  them off, suggest the switch at `https://my.gagarin.cloud/projects/P/alerts`.
 - Over MCP, `run` takes `schedule`, `time_zone` and `ttl_seconds`, and `status`
   carries `schedule`, `time_zone` and `actual.schedule` (`next_at`,
   `last_scheduled_at`, `suspended`).
@@ -1736,23 +1779,26 @@ A project can tell its members when something breaks. Alerts are Web Push
 notifications from the console (https://my.gagarin.cloud), which is also a PWA.
 Each member opts in per project for themselves, viewers included, and the
 notifications go only to that member's own devices. There is no topic, server
-or token to set up:
+or token to set up.
 
-```
-gg alerts on shop        # opt the caller in; says how many devices they have
-gg alerts test shop      # sends a test push to the caller's own devices
-gg alerts off shop       # opt the caller out
-```
+**A human turns alerts on, in the console.** The project's Alerts tab,
+`https://my.gagarin.cloud/projects/P/alerts`, has one switch, "Notify me about
+this project", which allows notifications on that device and opts the member in
+at once, and sends a test from the same page. Point the human there, on the
+phone they want the push on. Turning the switch off there opts them out.
 
-`gg alerts P` says whether the caller is opted in, how many devices they have,
-and the last few notifications. In MCP, `set_alerts` takes only the project. Opting in is per caller, so one
-member turning alerts on does not turn them on for anyone else.
+There is no gg command for alerts: talking the human through that page is your
+part. With the MCP server connected, `alerts` says whether the caller is opted
+in, how many devices they have, and the last few notifications; `test_alerts`
+sends a test once they say it is on; each takes only the project. Opting in is
+per member, so one member turning alerts on does not turn them on for anyone
+else.
 
 **An agent cannot add a device.** A device exists only once a human allows
 notifications in a browser, at `https://my.gagarin.cloud/projects/P/alerts`. On
 an iPhone the app must first be added to the Home Screen (Share, then Add to
 Home Screen) and opened from there, or the browser will not offer push at all.
-If `gg alerts on` reports no devices, hand the human that page. Then they hear
+If the human has no device yet, hand them that page. Then they hear
 when a service has been down for three minutes, when a deploy will not start
 (the previous revision keeps serving), and when a container crashes and
 restarts, once when it starts and once when it ends, never on repeat. The
@@ -1935,9 +1981,9 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 
 | code | what to do |
 |---|---|
-| `alerts_off` | `gg alerts test` before alerts are on. `gg alerts on P` first |
-| `ntfy_removed` | alerts no longer go to ntfy; `server`, `topic` and `token` are refused. Run `gg alerts on P` with no flags |
-| `no_devices` | `gg alerts test` and the caller has no device. A human allows notifications at https://my.gagarin.cloud/projects/P/alerts (iPhone: add the app to the Home Screen first) |
+| `alerts_off` | `test_alerts` before alerts are on. The human turns them on with the switch at https://my.gagarin.cloud/projects/P/alerts |
+| `ntfy_removed` | alerts no longer go to ntfy; `server`, `topic` and `token` are refused. The human turns alerts on in the console |
+| `no_devices` | `test_alerts` and the caller has no device. The human allows notifications at https://my.gagarin.cloud/projects/P/alerts (iPhone: add the app to the Home Screen first) |
 | `invalid_subscription` | the browser's push subscription was refused (not https, not a known push service, bad keys). The human re-enables notifications in the console |
 | `push_unconfigured` | the platform has no push keys yet. Nothing to fix on your side; tell the user |
 

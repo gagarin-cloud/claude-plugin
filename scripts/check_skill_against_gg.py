@@ -1,6 +1,11 @@
-"""Check every `gg ...` in the skill against the real CLI.
+"""Check every `gg ...` in the skill, or in the markdown files named, against
+the real CLI.
 
-See check-skill-against-gg.sh for why this exists.
+See check-skill-against-gg.sh for why this exists. With no arguments it checks
+the skill; with paths it checks those files instead, which is how the recipes
+repository and the website check the commands they print:
+
+    python3 scripts/check_skill_against_gg.py recipes/*/README.md
 
 It walks gg's own help to learn the command tree and each command's flags, then
 pulls every gg invocation out of the skill's code spans and fenced blocks and
@@ -93,10 +98,17 @@ def main():
     if not known_roots:
         sys.exit("could not read gg's command list — is gg on the PATH?")
 
-    text = open(SKILL).read()
+    files = sys.argv[1:] or [SKILL]
     errors, checked = [], 0
+    texts = {}
+    for name in files:
+        try:
+            texts[name] = open(name).read()
+        except OSError as e:
+            sys.exit(f"cannot read {name}: {e.strerror}")
 
-    for toks in invocations(text, known_roots):
+    for name, toks in ((n, t) for n, text in texts.items() for t in invocations(text, known_roots)):
+        where = "" if files == [SKILL] else f"{name}: "
         args = toks[1:]
         if not args:
             continue
@@ -109,7 +121,7 @@ def main():
         if not path:
             first = args[0]
             if WORD.match(first) and first not in known_roots:
-                errors.append(f"unknown command: gg {first}")
+                errors.append(f"{where}unknown command: gg {first}")
             continue
         checked += 1
         subs, allowed = tree[tuple(path)]
@@ -118,28 +130,31 @@ def main():
         # check exists for, and the one a flag scan alone walks straight past.
         if subs and i < len(args) and WORD.match(args[i]):
             errors.append(
-                f"unknown subcommand: gg {' '.join(path)} {args[i]} "
+                f"{where}unknown subcommand: gg {' '.join(path)} {args[i]} "
                 f"(has: {', '.join(sorted(subs))})")
         for flag in re.findall(r"(?<!\S)--([a-z][a-z0-9-]*)", " ".join(args[i:])):
             if flag not in allowed:
-                errors.append(f"unknown flag --{flag} for: gg {' '.join(path)}")
+                errors.append(f"{where}unknown flag --{flag} for: gg {' '.join(path)}")
 
-    # Every root command should be mentioned somewhere; a command the skill
-    # never names is a command an agent will never use.
+    # Every root command should be mentioned somewhere in the skill; a command
+    # the skill never names is a command an agent will never use. Other files
+    # are not meant to cover gg, so the note is the skill's alone.
     named = set()
-    for toks in invocations(text, known_roots):
+    for toks in invocations(texts.get(SKILL, ""), known_roots):
         if len(toks) > 1 and WORD.match(toks[1]):
             named.add(toks[1])
     unmentioned = sorted(known_roots - named - {"completion", "help", "version"})
 
     if errors:
-        print(f"{len(errors)} problem(s) between the skill and gg:")
+        what = "the skill" if files == [SKILL] else ", ".join(files)
+        print(f"{len(errors)} problem(s) between {what} and gg:")
         for e in sorted(set(errors)):
             print(f"  {e}")
         sys.exit(1)
 
-    print(f"ok — {checked} gg invocations in the skill, all real commands and flags")
-    if unmentioned:
+    what = "the skill" if files == [SKILL] else f"{len(files)} file(s)"
+    print(f"ok — {checked} gg invocations in {what}, all real commands and flags")
+    if unmentioned and files == [SKILL]:
         print(f"note: gg commands the skill never mentions: {', '.join(unmentioned)}")
 
 
