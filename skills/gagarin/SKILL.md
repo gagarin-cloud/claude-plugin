@@ -741,18 +741,17 @@ gg run shop/transcribe whisper:v1 --size g
   and not a failure, so do not resubmit it — a second submission is a second
   run, and a second start-up charge. A run within ten minutes of the last one
   finds the machine still up and starts at once, and still pays the fifteen
-  minutes. A wait well past six
-  minutes usually means the GPU is busy with another run; it is still not a
-  failure, and the rules for a run that never gets a machine are in "Jobs".
+  minutes. A wait well past six minutes usually means the GPU is busy with
+  another run; it is still not a failure, and the rules for a run that never
+  gets a machine are in "Jobs".
 
   **The image brings its own CUDA.** The machine has the NVIDIA driver; the
   CUDA libraries are the image's, so build on a `nvidia/cuda` base image or a
   framework's CUDA image. Without them a framework often falls back to the CPU
   without saying so, and runs at GPU prices; have the script print the device
-  it chose.
-  These images are 5–10 GB, so the first pull onto a fresh machine adds to the
-  wait, and the timeout counts from when the run gets a machine: pulling uses
-  some of the sixty minutes.
+  it chose. These images are 5–10 GB, so the first pull onto a fresh machine
+  adds to the wait, and the timeout counts from when the run gets a machine:
+  pulling uses some of the sixty minutes.
 
   **What does not exist.** There is no GPU service — nothing that stays up or
   answers on a port has a GPU — and no GPU job longer than an hour. There is one
