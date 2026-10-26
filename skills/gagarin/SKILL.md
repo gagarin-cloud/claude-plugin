@@ -167,13 +167,26 @@ for.
 |---|---|
 | `memory_briefing` | first, when starting work on a project — a primer packed to a token budget |
 | `memory_search` | before exploring the code for something a past session may already have found |
-| `memory_get` / `memory_related` | one memory in full; what it links to |
+| `memory_get` / `memory_related` | one memory in full, by id or by key; what it links to |
 | `remember` | one durable fact per memory, in English |
-| `memory_update` | edit, pin or archive one |
+| `memory_update` | edit, pin, archive, confirm or dispute one |
 | `memory_link` / `memory_unlink` | say that two are related, or that they are not |
+| `memory_review` | housekeeping: likely duplicates, orphans, stale and disputed memories, how close the project is to its cap |
 
 - **Brief yourself before you read the code, and search before you go
-  looking.** That is what it is for.
+  looking.** That is what it is for. When you know the task, pass `focus` (what
+  you are about to work on) and `paths` (the files you will touch) to
+  `memory_briefing`, and the relevant memories come first.
+- **Give a fact that changes a `key`.** What is deployed now, the current
+  schema version: `remember` it as a `state` memory with a key such as
+  `deploy/current`, and the next `remember` with the same key replaces it and
+  keeps its links. Do not search for the old one and supersede it by hand.
+- **Say when a memory is right or wrong.** One you checked against the code or
+  the cluster gets `confirm: true`, which resets its age. One that proves wrong
+  gets `dispute: true` — it is marked ⚠ and ranks lower until someone confirms,
+  edits or archives it — or a fix, or an archive; do not leave it to mislead the
+  next session. A briefing that counts disputed memories, or a `remember` that
+  warns the project is near its cap, is the cue to call `memory_review` and tidy.
 - **Remember what a future session could not cheaply rediscover**: why a
   decision went the way it did, a gotcha that cost time, where the deploy
   differs from the obvious — which port, which Dockerfile quirk, which
