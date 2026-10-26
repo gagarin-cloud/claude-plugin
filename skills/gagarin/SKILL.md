@@ -199,38 +199,52 @@ If your client is already connected to Gagarin's MCP server you may not need
 `gg` at all — read "If you cannot install gg" below first, because the one thing
 it cannot do is build an image, and that is often the whole task.
 
-Use the package manager the machine already has. On macOS or Linux:
+Run the install script. It verifies the download against the release's
+`checksums.txt`, installs to `~/.local/bin` without `sudo`, and never edits a
+shell profile. On macOS or Linux:
 
 ```
-brew install --cask gagarin-cloud/tap/gg
+curl -fsSL https://gagarin.cloud/install.sh | sh
 ```
 
-It is a **cask**, not a formula. If `brew install gagarin-cloud/tap/gg` (no
-`--cask`) put an older `gg` there, homebrew will not replace one kind with the
-other on its own: run `brew uninstall gg` once, then install the cask.
-
-On Windows, with either manager:
+On Windows, in PowerShell:
 
 ```
-scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket
-scoop install gagarin/gg
+irm https://gagarin.cloud/install.ps1 | iex
 ```
 
-```
-winget install Gagarin.gg
-```
-
-Or, on any platform with a Go toolchain:
+If your harness refuses or prompts on piping into a shell, download the script
+and run it as a file instead:
 
 ```
-go install github.com/gagarin-cloud/gg@latest
+curl -fsSLo install.sh https://gagarin.cloud/install.sh && sh install.sh
 ```
 
-If it has none of those, take a binary for its platform from
-https://github.com/gagarin-cloud/gg/releases — every release publishes
-checksums, and you should verify them. **Do not pipe a script from a URL into a
-shell**, do not download from a host you guessed, and do not carry on without
-`gg`.
+On Windows: `irm https://gagarin.cloud/install.ps1 -OutFile install.ps1; ./install.ps1`
+(or `powershell -ExecutionPolicy Bypass -File install.ps1` if execution policy
+blocks it). Windows installs to `%LOCALAPPDATA%\Programs\gg` and adds it to the
+user's `PATH`. `GAGARIN_INSTALL_DIR` and `GAGARIN_INSTALL_VERSION` change the
+directory and pin a version.
+
+If `~/.local/bin` is not on `PATH`, the script prints the `export` line to add.
+Call `gg` by its full path (`~/.local/bin/gg`) for the rest of your session and
+tell your human the line; do not edit their profile yourself.
+
+Alternatives, if the machine already has the tool:
+
+- macOS: `brew install --cask gagarin-cloud/tap/gg`. It is a **cask**, not a
+  formula, and casks do not work on Linux. If `brew install
+  gagarin-cloud/tap/gg` (no `--cask`) put an older `gg` there, homebrew will not
+  replace one kind with the other on its own: run `brew uninstall gg` once,
+  then install the cask.
+- Windows: `scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket`
+  then `scoop install gagarin/gg`, or `winget install Gagarin.gg`.
+- Any platform with a Go toolchain: `go install github.com/gagarin-cloud/gg@latest`
+- Linux: a `.deb`, `.rpm` or `.apk` from
+  https://github.com/gagarin-cloud/gg/releases. Installing one needs `sudo`, so
+  give your human the command.
+
+Do not download from a host you guessed, and do not carry on without `gg`.
 
 If `go install` succeeds but the shell still cannot find `gg`, its bin directory
 (`go env GOPATH`/bin) is not on `PATH`. Say so and let the user fix their
@@ -253,7 +267,17 @@ This skill is not part of the binary. It lives in
 plugin, elsewhere with `npx skills add gagarin-cloud/claude-plugin -g`. So it can
 be newer than the `gg` you are holding: **if a command here is refused as
 unknown, check `gg version` and upgrade before concluding the command does not
-exist.** Everything documented here is present in gg v0.42.0 and later.
+exist.** `gg version` also prints, on stderr, "gg vX is available (you have vY)"
+when you are behind (`GAGARIN_NO_UPDATE_CHECK=1` silences it). Upgrade with
+`gg upgrade`, which upgrades the way `gg` was installed: brew, scoop, winget and
+`go install` are handed to that tool, script and archive installs replace
+themselves after checking the checksum, and `.deb`/`.rpm`/`.apk` installs print a
+`sudo` command for your human. `gg upgrade --dry-run` previews it. `gg upgrade`
+itself needs v0.54.0; on an older `gg` it does not exist, so re-run the install
+command above or use the old per-manager command (`brew upgrade --cask
+gagarin-cloud/tap/gg`, `scoop update gg`, `winget upgrade Gagarin.gg`,
+`go install ...@latest`). Everything else documented here is present in gg
+v0.42.0 and later.
 
 ## If you cannot install gg: the MCP server
 

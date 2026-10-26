@@ -37,26 +37,27 @@ the internet has neither. So `gg` is the larger surface, and the way to get an
 image into the registry:
 
 ```
-brew install --cask gagarin-cloud/tap/gg
+curl -fsSL https://gagarin.cloud/install.sh | sh
 ```
 
-It is a cask. If you installed `gg` as a formula before that, `brew uninstall
-gg` once first — homebrew will not swap one for the other on its own.
-
-On Windows:
+On Windows, in PowerShell:
 
 ```
-scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket
-scoop install gagarin/gg
+irm https://gagarin.cloud/install.ps1 | iex
 ```
 
-```
-winget install Gagarin.gg
-```
+The script checks the download against the release checksums, installs to
+`~/.local/bin` (Windows: `%LOCALAPPDATA%\Programs\gg`) without `sudo`, and never
+edits your shell profile; if the directory is not on your `PATH` it prints the
+line to add. `gg upgrade` (v0.54.0 and later) keeps it current.
 
-Or `go install github.com/gagarin-cloud/gg@latest`, or a
-[released binary](https://github.com/gagarin-cloud/gg/releases) — every release
-publishes checksums. There is deliberately no `curl | bash`.
+Prefer a package manager? On macOS, `brew install --cask gagarin-cloud/tap/gg` —
+a cask, so it is macOS only, and if you installed `gg` as a formula before that,
+`brew uninstall gg` once first. On Windows, `scoop bucket add gagarin
+https://github.com/gagarin-cloud/scoop-bucket` then `scoop install gagarin/gg`,
+or `winget install Gagarin.gg`. Or `go install
+github.com/gagarin-cloud/gg@latest`, or a `.deb`, `.rpm` or `.apk` from the
+[releases page](https://github.com/gagarin-cloud/gg/releases).
 
 `/gagarin:setup` walks through it, including `gg login`.
 
