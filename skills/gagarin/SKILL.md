@@ -1,6 +1,6 @@
 ---
 name: gagarin
-description: Deploy and operate applications on Gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, start jobs from an application's own code with the Go, Node or Python SDK, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions Gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
+description: Deploy and operate applications on Gagarin with the gg CLI — ship a service from a Dockerfile, provision postgres, qdrant, valkey, iggy, rabbitmq, s3 or external-credential resources, wire what may reach what, put a service on the internet, give CI its own credential, start jobs from an application's own code with the Go, Node or Python SDK, read status and logs, roll back, tear things down, and keep what a session learned in the project's memory. Use whenever the user asks to deploy, host, run or operate an application, or mentions Gagarin or gg. Gagarin runs container images on managed infrastructure; the user never needs to know about Kubernetes, ingress, TLS, or the underlying cloud.
 ---
 
 # Deploying with Gagarin
@@ -44,7 +44,7 @@ first; they are the parts that stop you getting it wrong.
    with `gg deps add`; a third-party key is an `external` resource. See "What
    does not go in env" below.
 8. **If a resource type exists, use it** (`postgres`, `qdrant`, `valkey`,
-   `iggy`, `s3`, `external`). If one does not, an ordinary service with a volume is the normal
+   `iggy`, `rabbitmq`, `s3`, `external`). If one does not, an ordinary service with a volume is the normal
    path, not a workaround.
 9. **You can deploy; you cannot destroy.** Deleting anything, taking an address
    away, withdrawing a dependency with `gg deps rm`, and handing a project over
@@ -71,7 +71,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg run P/JOB IMAGE:TAG --schedule "0 3 * * *"` | run it on a schedule instead of now; returns at once |
 | the SDK (Go, Node, Python) | start runs from an application's own code — see "From code: the SDK" |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
-| `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, s3 or external |
+| `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, rabbitmq, s3 or external |
 | `gg resource public P/NAME` | make an `s3` bucket listable and readable by anyone; `gg resource private P/NAME` undoes it |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
 | `gg resource secrets P/NAME --names` | just the variable names it publishes, no values |
@@ -1022,6 +1022,7 @@ gg resource add shop/db postgres --size m --storage 20
 gg resource add shop/vectors qdrant
 gg resource add shop/cache valkey
 gg resource add shop/events iggy
+gg resource add shop/jobs rabbitmq
 gg resource add shop/files s3
 gg resource add shop/openai external --env-file .env.openai
 ```
@@ -1031,6 +1032,7 @@ gg resource add shop/openai external --env-file .env.openai
 | `postgres` | PostgreSQL 17 | on a volume; survives restarts | nightly, kept 14 days |
 | `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
 | `iggy` | Apache Iggy, a persistent message-streaming log | on a volume (10 GB unless `--storage`); survives restarts | nightly, kept 14 days — see the durability caveat |
+| `rabbitmq` | RabbitMQ 4.4.0 with the management plugin, a message broker for work queues | on a volume (10 GB unless `--storage`); durable queues and persistent messages survive restarts | **none** |
 | `valkey` | in-memory store, redis protocol | **none — a restart loses everything** | none, by design |
 | `s3` | an S3-compatible bucket, for files — private until `gg resource public` | **objects on durable storage; it runs nothing** | **none** |
 | `external` | a third-party API, run by nobody here | **none — it runs nothing at all** | nothing to back up |
@@ -1075,6 +1077,36 @@ for — an honesty you can pass on when somebody asks.
     disk. Have producers create topics with `--durability persisted` for
     anything the user would want back from a backup, and say so when you set one
     up.
+- **`rabbitmq` is RabbitMQ** 4.4.0 with the management plugin: a message broker,
+  what an application publishes jobs to and workers consume from. One pod, one
+  volume at `/var/lib/rabbitmq` (10 GB by default; `--storage` is accepted),
+  private like every resource, so it is reached only by services that declare it
+  with `deps`. Add it, then let the worker reach it: `gg resource add shop/jobs
+  rabbitmq`, then `gg deps add shop/worker jobs`.
+  - **It answers on two ports.** `<NAME>_PORT` is 5672, AMQP, the protocol every
+    client speaks, and `<NAME>_HTTP_PORT` is 15672, the management UI and HTTP
+    API.
+  - **The credential is in the URL.** `<NAME>_URL` is
+    `amqp://app:<password>@jobs:5672/%2F` for a resource called `jobs` (the
+    `%2F` is the default vhost `/`), and it goes straight to the client: pika,
+    amqplib, amqp091-go, or a Celery `broker_url`. `_USER` is always `app`.
+  - **There are no backups.** `gg resource backup` answers `backup_unsupported`.
+    Unlike iggy, there is nothing to recommend that makes a backup complete,
+    because there is no backup. What survives a restart is only what is durable:
+    declare queues `durable` and publish messages `persistent` (delivery mode 2)
+    for anything the user wants to outlive the pod. A transient queue or message
+    is gone on a restart, which happens on a node drain, not only when somebody
+    asks.
+  - **Declare queues and exchanges from application code, at startup.** The
+    broker keeps no copy elsewhere, so a fresh one (a destroyed and re-added
+    resource, or a lost volume) must be rebuildable by just starting the
+    application. Declaring is idempotent when the arguments match, so every
+    producer and consumer can do it on every start. Do not create topology by
+    hand in the management UI and leave it there.
+  - **Choose it for work queues, routing and fan-out to workers**; choose
+    `iggy` for an append-only log that consumers replay from an offset. If the
+    user wants to re-read history, it is iggy; if each message is a job to be
+    done once and then forgotten, it is rabbitmq.
 - **`valkey` is a cache, not a database.** `--storage` is refused (`no_storage`)
   rather than quietly ignored, and everything in it is gone when the pod restarts
   — which happens on a node drain, not only when somebody asks. Do not put a
@@ -1121,17 +1153,17 @@ Or declare it on the deploy, so the service never starts without them:
 **The variables are named after the resource, not the protocol** — the resource's
 own name, upper-cased with dashes as underscores, plus a suffix:
 
-| suffix | postgres | valkey | qdrant | iggy |
-|---|---|---|---|---|
-| `<NAME>_URL` | `postgres://…?sslmode=disable` | `redis://:pass@…` | `http://vectors:6333` | `iggy://root:pass@events:8090` |
-| `<NAME>_HOST` | ✅ | ✅ | ✅ | ✅ |
-| `<NAME>_PORT` | 5432 | 6379 | 6333 | 8090 |
-| `<NAME>_GRPC_PORT` | — | — | 6334 | — |
-| `<NAME>_HTTP_PORT` | — | — | — | 3000 |
-| `<NAME>_USER` | ✅ | — | — | `root` |
-| `<NAME>_PASSWORD` | ✅ | ✅ | — | ✅ |
-| `<NAME>_API_KEY` | — | — | ✅ | — |
-| `<NAME>_DATABASE` | ✅ | — | — | — |
+| suffix | postgres | valkey | qdrant | iggy | rabbitmq |
+|---|---|---|---|---|---|
+| `<NAME>_URL` | `postgres://…?sslmode=disable` | `redis://:pass@…` | `http://vectors:6333` | `iggy://root:pass@events:8090` | `amqp://app:pass@jobs:5672/%2F` |
+| `<NAME>_HOST` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `<NAME>_PORT` | 5432 | 6379 | 6333 | 8090 | 5672 |
+| `<NAME>_GRPC_PORT` | — | — | 6334 | — | — |
+| `<NAME>_HTTP_PORT` | — | — | — | 3000 | 15672 |
+| `<NAME>_USER` | ✅ | — | — | `root` | `app` |
+| `<NAME>_PASSWORD` | ✅ | ✅ | — | ✅ | ✅ |
+| `<NAME>_API_KEY` | — | — | ✅ | — | — |
+| `<NAME>_DATABASE` | ✅ | — | — | — | — |
 
 An `s3` bucket publishes none of these. It publishes five of its own:
 `<NAME>_ENDPOINT`, `<NAME>_REGION`, `<NAME>_BUCKET`, `<NAME>_ACCESS_KEY_ID` and
@@ -1227,7 +1259,8 @@ db is a postgres. The tunnel is up:
   tunnel and survives any command exiting. Do not leave `gg connect` running
   as plumbing under an application.
 - **Every port the resource answers on gets a local end** — a qdrant tunnels
-  6333 and 6334 at once, and an iggy 8090 and 3000. Each prefers its own number and quietly takes a free
+  6333 and 6334 at once, an iggy 8090 and 3000, and a rabbitmq 5672 and
+  15672 (the management UI is then at `http://127.0.0.1:<local port>`). Each prefers its own number and quietly takes a free
   one when that is busy; `--port` pins the primary, and is refused rather than
   moved when the port is taken.
 - **An external is refused** (`not_tunnelable`), and an s3 is refused by `gg`
@@ -1453,7 +1486,7 @@ command names what it rolled. Nothing but variable *names* is printed;
 `gg resource secrets` reads the values.
 
 **Who supplies the new value is the only difference between the types.** For
-`postgres`, `qdrant`, `valkey`, `iggy` and `s3`, Gagarin mints one and `--env` is refused — a
+`postgres`, `qdrant`, `valkey`, `iggy`, `rabbitmq` and `s3`, Gagarin mints one and `--env` is refused — a
 password you chose is one the running server has never heard of. For an
 `external` the values are yours, so one of `--set`, `--unset`, `--env-file` or
 `--env` is required.
@@ -1488,6 +1521,7 @@ reported as a success is how somebody believes a secret is gone when it is not.
 | `postgres` | the running server is told immediately | none |
 | `qdrant` | the pod is replaced; the key is read at startup | a few seconds away; **the data survives** |
 | `iggy` | the running server is told the new root password first and it is recorded, then the pod restarts and dependents roll | a few seconds away; **nothing stored is lost**, a graceful stop flushes |
+| `rabbitmq` | the running server is told the new password first, then the pod restarts and dependents roll | a few seconds away; **nothing stored is lost** |
 | `valkey` | the pod is replaced; the password is read at startup | **the cache is emptied** |
 | `s3` | a new key is issued and recorded, dependents restart, then the old key is revoked at once | **not zero-downtime:** their S3 calls fail for the seconds the restart takes; **the objects survive** |
 | `external` | nothing of ours runs, so nothing of ours restarts | none |
@@ -1516,7 +1550,8 @@ with `--durability persisted` are guaranteed complete; a topic with the default
 durability may be missing its newest messages, the ones not yet flushed to disk.
 Recommend `--durability persisted` for anything the user would want back. Valkey keeps nothing by design, an external has nothing here to
 keep, and an s3 bucket is not copied: its objects are on durable storage, but
-`gg resource backup` answers `backup_unsupported`.
+`gg resource backup` answers `backup_unsupported`. A rabbitmq is in the same case: it is not backed up at all, so its
+durability is only what survives a restart (durable queues, persistent messages).
 
 ```
 gg resource backups shop/db     what is stored, newest last
@@ -2030,7 +2065,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | code | what to do |
 |---|---|
 | `no_such_resource` | `gg status <project>` lists what it has |
-| `unknown_resource_type` | `postgres`, `qdrant`, `valkey`, `iggy`, `s3` or `external` |
+| `unknown_resource_type` | `postgres`, `qdrant`, `valkey`, `iggy`, `rabbitmq`, `s3` or `external` |
 | `wrong_resource_type` | another type already holds that name. Destroy it — which throws its data away — or pick another name |
 | `invalid_storage` | 1 to 100 GB |
 | `no_storage` | this type has no volume (valkey, s3): drop `--storage` |
@@ -2053,7 +2088,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 
 | code | what to do |
 |---|---|
-| `backup_unsupported` | only postgres, qdrant and iggy have backups; an s3 bucket is on durable storage but never copied. If losing the data would matter, keep a copy elsewhere |
+| `backup_unsupported` | only postgres, qdrant and iggy have backups; an s3 bucket is on durable storage but never copied, and a rabbitmq is not backed up at all (declare its queues from application code so a fresh broker can be rebuilt). If losing the data would matter, keep a copy elsewhere |
 | `backup_unconfigured` | this Gagarin runs without a backup bucket. Report it to the user |
 | `restore_name_taken` | a restore creates the resource it fills. Give it a name nothing has yet |
 | `backup_mismatch` | that key belongs to another project. Never restore across projects |
