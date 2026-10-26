@@ -27,9 +27,10 @@ project exists or that you may write to it. If the note names a project
 `viewer` role means every deploy will be refused.
 
 If the project already exists and the Gagarin MCP tools are connected, call
-`memory_briefing` for it before reading any code: a previous session may
-already have found the port, the Dockerfile quirk and the variables the app
-needs. Without the MCP tools, skip this — memory is unavailable there, and
+`memory_briefing` for it before reading any code, with a `focus` that says what
+you are about to do ("deploy the web service"): a previous session may already
+have found the port, the Dockerfile quirk and the variables the app needs.
+Without the MCP tools, skip this — memory is unavailable there, and
 nothing else waits on it.
 
 ## The order
@@ -90,5 +91,7 @@ If the MCP tools are connected, `remember` what the next session could not
 cheaply rediscover about this deploy: the port, a Dockerfile quirk, the names
 of the environment variables the application requires — never their values —
 and anything that differed from the obvious. One fact per memory, in English.
-Skip what the repository already says, and skip it entirely if the tools are
-not there.
+What is deployed now is the one that changes: `remember` it as a `state` memory
+with the key `deploy/<service>`, so the next deploy replaces it instead of
+piling up beside it. Skip what the repository already says, and skip it
+entirely if the tools are not there.

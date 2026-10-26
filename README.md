@@ -22,6 +22,8 @@ That gives you four things:
 - **The MCP server** at `https://mcp.gagarin.cloud/mcp` — the Gagarin API as
   tools, and the project's **memory**: the durable facts an agent keeps about a
   codebase so the next session does not rediscover them, reachable only here.
+  A fact that changes takes a key and is replaced, not piled up; a memory is
+  confirmed when checked, disputed when wrong, and `memory_review` says what to tidy.
   You sign in with GitHub or Google when Claude Code asks; nothing is installed
   and no token passes through the agent.
 - **Commands** — `/gagarin:setup`, `/gagarin:status`, `/gagarin:ship`.
