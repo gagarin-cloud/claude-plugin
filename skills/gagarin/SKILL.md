@@ -689,19 +689,21 @@ anywhere it should not have.
 
 ### Size
 
-Every service and every resource runs at a size, and `s` is what you get if you
-say nothing at creation.
+Every service, every resource and every job runs at a size, and `s` is what
+you get if you say nothing at creation.
 
 | | reserved | ceiling | price |
 |---|---|---|---|
 | `s` | 100m CPU / 256 MiB | 0.5 vCPU / 1 GB, shared | $10/month |
 | `m` | 1 vCPU / 2 GB | same — dedicated | $30/month |
 | `l` | 2 vCPU / 4 GB | same — dedicated | $60/month |
+| `g` | 1 L4 GPU + 6 vCPU / 40 GB | same — dedicated | $2.85/hour + 15-min start-up charge per run, jobs only |
 
 ```
 gg deploy shop/web:8080 web:v3 --size m
 gg ship shop/web:8080 --size m
 gg resource add shop/db postgres --size m
+gg run shop/transcribe whisper:v1 --size g
 ```
 
 - **`s` is shared; `m` and `l` are dedicated.** An `s` service may burst to its
@@ -717,6 +719,47 @@ gg resource add shop/db postgres --size m
   `gg status` says so and names the size to move to — or when you already know
   the workload: server-side-rendered Next.js, a JVM, a large in-process cache, a
   postgres a real application depends on. Do not reach for `l` speculatively.
+  Work that needs a GPU — inference, Whisper, Stable Diffusion, fine-tuning a
+  small model — is a job at `g`, and nothing else has one.
+- **`g` is a GPU, and only a job may have it.** A run at `g` gets one NVIDIA L4
+  with 24 GB of GPU memory and 6 vCPU / 40 GB beside it, reserved and ceiling
+  alike: an L4 cannot be shared, so the run has the whole machine, and there is
+  nothing to tune. Ask for it with `gg run --size g`, or `size: "g"` on the MCP
+  `run` tool. `gg deploy`, `gg ship` and `gg resource add` refuse it with
+  `invalid_size`, which lists `s`, `m` and `l`.
+
+  **Every run is billed its length plus a 15-minute start-up charge**, at $2.85
+  an hour: a 15-minute run is $1.43, and the most one run can cost is $3.56, at
+  the 60-minute cap. The fifteen minutes are the GPU machine booting and staying
+  up after the run, and every run pays them, including one that lands on a
+  machine still up from the last. Tell the user before the first run; it is the
+  part of the price nobody guesses.
+
+  **A run waits three to six minutes for its machine.** `gg run` accepts it at
+  once, and then it sits `pending` while a GPU machine boots and installs its
+  drivers; `gg status` reports it as waiting for a machine. That is not stuck
+  and not a failure, so do not resubmit it — a second submission is a second
+  run, and a second start-up charge. A run within ten minutes of the last one
+  finds the machine still up and starts at once, and still pays the fifteen
+  minutes. A wait well past six
+  minutes usually means the GPU is busy with another run; it is still not a
+  failure, and the rules for a run that never gets a machine are in "Jobs".
+
+  **The image brings its own CUDA.** The machine has the NVIDIA driver; the
+  CUDA libraries are the image's, so build on a `nvidia/cuda` base image or a
+  framework's CUDA image. Without them a framework often falls back to the CPU
+  without saying so, and runs at GPU prices; have the script print the device
+  it chose.
+  These images are 5–10 GB, so the first pull onto a fresh machine adds to the
+  wait, and the timeout counts from when the run gets a machine: pulling uses
+  some of the sixty minutes.
+
+  **What does not exist.** There is no GPU service — nothing that stays up or
+  answers on a port has a GPU — and no GPU job longer than an hour. There is one
+  GPU type: nothing gives more than 24 GB of GPU memory, or two GPUs, and no
+  size changes that. If the work needs any of these, say plainly that Gagarin
+  does not run it today; do not promise it, and do not reach for `l` as a way
+  round: it has no GPU at all.
 - `gg status` shows the size every service is running at, and the day's accrued
   cost at the bottom of the table.
 
@@ -791,11 +834,18 @@ runs. Durable data belongs in a resource the job reaches with `--deps`.
   into a second Dockerfile. `gg run` does not build.
 - **A job is billed for the time it runs**, at its size, not for existing: by
   the minute, from when its container starts. Waiting for a machine and pulling
-  the image are not billed. A hung run costs at most its timeout.
+  the image are not billed. A hung run costs at most its timeout. A run at `g`
+  also pays a 15-minute start-up charge on top; see "Size".
 - **A run can sit `pending` without being stuck.** With no machine yet, `gg
   status` says "waiting for a machine with room for it — the cluster adds one
   within a few minutes unless it is at its limit; nothing is billed until it
   starts". Keep waiting; it is not a failure.
+- **`--size g` gives a run a GPU**, and only a job can have it. A run sits
+  `pending` three to six minutes while its GPU machine boots, unless one is
+  still up from the last ten minutes; that is the wait above, not a fault. Its
+  image must carry its own CUDA and is big enough that pulling it uses a real
+  share of the timeout. What it costs, what fits in it and what does not exist
+  are under "Size" — read them before promising a user a GPU job.
 - **Kinds do not change.** A name that is a job stays a job (`not_a_service`),
   and a name that is a service cannot be run as a job (`not_a_job`). Give the
   job its own name.
@@ -929,6 +979,10 @@ Everything in "Jobs" above still holds, because it is the same call:
   database or bucket through `deps`.
 - **The timeout is at most 3600 seconds and starts when the run gets a
   machine.** Every call is a new run, billed for the time it runs.
+- **`size` takes `"g"` for a GPU** (`SizeG` in Go), from code exactly as from
+  `gg run`: the start-up charge on every run, and the wait for a machine, in
+  "Size". An application that starts GPU runs on a user's click is starting a
+  charge of at least $0.71 each time, however short the run.
 - **The TTL is `ttlSeconds` (Node), `ttl_seconds` (Python), `TTLSeconds` (Go)**,
   60 to 28800 (`MIN_TTL_SECONDS`/`MAX_TTL_SECONDS`, `MinTTLSeconds`/`MaxTTLSeconds`
   in Go); leave it out for the job's current one, eight hours on a new job. It
@@ -1965,6 +2019,7 @@ Start from the symptom, not from the logs.
 | `ImagePullBackOff` | the image is not there — a copy that never finished, or a tag that does not exist | `gg history`, then push or copy the image again |
 | the container starts and exits | a missing environment variable, or a crash | `gg logs shop/web` |
 | killed with no log output | out of memory | `gg status` names the size to move to |
+| a `g` run logs CUDA out of memory | the model does not fit in the GPU's 24 GB | no size changes that; the fix is in the script — a smaller model, a smaller batch, lower precision |
 | one service hangs calling another | a missing `gg deps` edge — an undeclared call is dropped, not refused | `gg deps ls shop/api`, or the REACHES column |
 | a database driver times out | the same, or the app is not reading `<NAME>_URL` | `gg deps ls`, then `gg resource secrets` to see what it should hold |
 | you need to look inside the database itself | it is not on the internet, by design | `gg connect shop/db`, then psql or redis-cli against the printed URL |
@@ -1994,7 +2049,10 @@ size s); try --size m, which gets 2Gi
 Redeploy at the size it names. Do not retry unchanged — it will be killed again —
 and do not go hunting in the logs first, because a process the kernel killed for
 using too much memory usually writes nothing about it. This is the one failure
-you can resolve without asking the user anything, so resolve it.
+you can resolve without asking the user anything, so resolve it. A `g` run is
+the exception twice over: there is no bigger size to move it to, and the memory
+a GPU job usually runs out of is the GPU's, which the script reports in its own
+log and no size raises.
 
 Do not poll in a tight loop, and do not tell the user something is live because a
 command exited zero.
@@ -2083,7 +2141,7 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `job_running` | a one-shot job was given a schedule while its run is going. Wait for it to end (`gg status`), or destroy the job |
 | `invalid_volume` | an absolute path inside the container, e.g. `/var/lib/postgresql/data` |
 | `volume_immutable` | a volume is set once and never moves or resizes. Keep it, or destroy the service and deploy again — which throws the data away |
-| `invalid_size` | sizes are `s`, `m`, `l`; the message names the account's cap |
+| `invalid_size` | a service or a resource takes `s`, `m` or `l`; a job takes those or `g`, the GPU, which is refused everywhere else. The message names the sizes that call can take, and the account's cap |
 | `no_such_revision` | `gg history` lists the ones it had |
 | `nothing_to_roll_back_to` | deployed only once. Not a bad call, just nothing to do |
 | `not_a_service` | that name is a resource or a job — you tried to deploy a service over it, give it an address, or roll back a managed resource whose credentials Gagarin mints, s3 included (an external can be rolled back) |
