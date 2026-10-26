@@ -697,7 +697,7 @@ you get if you say nothing at creation.
 | `s` | 100m CPU / 256 MiB | 0.5 vCPU / 1 GB, shared | $10/month |
 | `m` | 1 vCPU / 2 GB | same — dedicated | $30/month |
 | `l` | 2 vCPU / 4 GB | same — dedicated | $60/month |
-| `g` | 1 L4 GPU + 6 vCPU / 40 GB | same — dedicated | $2.85/hour + 15-min start-up charge per run, jobs only |
+| `g` | 1 L4 GPU + 6 vCPU / 40 GB | same — dedicated | $3/hour, jobs only |
 
 ```
 gg deploy shop/web:8080 web:v3 --size m
@@ -728,22 +728,19 @@ gg run shop/transcribe whisper:v1 --size g
   `run` tool. `gg deploy`, `gg ship` and `gg resource add` refuse it with
   `invalid_size`, which lists `s`, `m` and `l`.
 
-  **Every run is billed its length plus a 15-minute start-up charge**, at $2.85
-  an hour: a 15-minute run is $1.43, and the most one run can cost is $3.56, at
-  the 60-minute cap. The fifteen minutes are the GPU machine booting and staying
-  up after the run, and every run pays them, including one that lands on a
-  machine still up from the last. Tell the user before the first run; it is the
-  part of the price nobody guesses.
+  **A run at `g` is billed by the minute at $3 an hour**, from when its
+  container starts, like every size. Waiting for the machine and pulling the
+  image are not billed, and the most one run can cost is $3, at the 60-minute
+  cap.
 
   **A run waits three to six minutes for its machine.** `gg run` accepts it at
   once, and then it sits `pending` while a GPU machine boots and installs its
   drivers; `gg status` reports it as waiting for a machine. That is not stuck
   and not a failure, so do not resubmit it — a second submission is a second
-  run, and a second start-up charge. A run within ten minutes of the last one
-  finds the machine still up and starts at once, and still pays the fifteen
-  minutes. A wait well past six minutes usually means the GPU is busy with
-  another run; it is still not a failure, and the rules for a run that never
-  gets a machine are in "Jobs".
+  run. A run within ten minutes of the last one finds the machine still up and
+  starts at once. A wait well past six minutes usually means the GPU is busy
+  with another run; it is still not a failure, and the rules for a run that
+  never gets a machine are in "Jobs".
 
   **The image brings its own CUDA.** The machine has the NVIDIA driver; the
   CUDA libraries are the image's, so build on a `nvidia/cuda` base image or a
@@ -833,8 +830,7 @@ runs. Durable data belongs in a resource the job reaches with `--deps`.
   into a second Dockerfile. `gg run` does not build.
 - **A job is billed for the time it runs**, at its size, not for existing: by
   the minute, from when its container starts. Waiting for a machine and pulling
-  the image are not billed. A hung run costs at most its timeout. A run at `g`
-  also pays a 15-minute start-up charge on top; see "Size".
+  the image are not billed. A hung run costs at most its timeout.
 - **A run can sit `pending` without being stuck.** With no machine yet, `gg
   status` says "waiting for a machine with room for it — the cluster adds one
   within a few minutes unless it is at its limit; nothing is billed until it
@@ -979,9 +975,9 @@ Everything in "Jobs" above still holds, because it is the same call:
 - **The timeout is at most 3600 seconds and starts when the run gets a
   machine.** Every call is a new run, billed for the time it runs.
 - **`size` takes `"g"` for a GPU** (`SizeG` in Go), from code exactly as from
-  `gg run`: the start-up charge on every run, and the wait for a machine, in
-  "Size". An application that starts GPU runs on a user's click is starting a
-  charge of at least $0.71 each time, however short the run.
+  `gg run`, with the wait for a machine described in "Size". A run at `g` from
+  code is billed like any other, by the minute at $3 an hour, and costs at most
+  $3.
 - **The TTL is `ttlSeconds` (Node), `ttl_seconds` (Python), `TTLSeconds` (Go)**,
   60 to 28800 (`MIN_TTL_SECONDS`/`MAX_TTL_SECONDS`, `MinTTLSeconds`/`MaxTTLSeconds`
   in Go); leave it out for the job's current one, eight hours on a new job. It
