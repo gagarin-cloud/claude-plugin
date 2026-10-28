@@ -149,9 +149,9 @@ Five rules, each for a reason:
   may already exist.
 
 Where the id comes from: `gg init shop` prints `project shop created (id
-3cnciet6)`; `gg projects` prints a row per project — name, id, role; and the
-first line of `gg status shop` reads `project shop  (id 3cnciet6)` and names the place
-alongside. None of them has a JSON flag; read the column.
+3cnciet6), runs in fr-par-1`; `gg projects` prints a row per project — name, id,
+cluster, role; and the first line of `gg status shop` reads
+`project shop  (id 3cnciet6)  fr-par-1`, ending with the cluster. None of them has a JSON flag; read the column.
 
 **A project has a place.** Each project runs on one cluster, chosen when it is
 created and never changed; `gg status` shows it (`fr-par-1`). It is part of the
@@ -1742,7 +1742,7 @@ side. Trust it over your own memory of what you deployed: it reads the cluster,
 not just the database.
 
 ```
-project shop  (id 7f3a9c2e)
+project shop  (id 7f3a9c2e)  fr-par-1
 
      SERVICE  KIND      SIZE  READY  PORT  REACHES      IMAGE
   ●  web      service   s     1/1    8080  api          web:1757030400
