@@ -149,9 +149,15 @@ Five rules, each for a reason:
   may already exist.
 
 Where the id comes from: `gg init shop` prints `project shop created (id
-3cnciet6)`; `gg projects` prints a row per project — name, id, role; and the
-first line of `gg status shop` reads `project shop  (id 3cnciet6)`. None of
-them has a JSON flag; read the column.
+3cnciet6), runs in fr-par-1`; `gg projects` prints a row per project — name, id,
+cluster, role; and the first line of `gg status shop` reads
+`project shop  (id 3cnciet6)  fr-par-1`, ending with the cluster. None of them has a JSON flag; read the column.
+
+**A project has a place.** Each project runs on one cluster, chosen when it is
+created and never changed; `gg status` shows it (`fr-par-1`). It is part of the
+project's generated addresses, `<service>-<project id>.<cluster>.apps.gagarin.cloud`
+(for example `web-3cnciet6.fr-par-1.apps.gagarin.cloud`), so never build one by
+hand from the id alone: read it from `gg status` or `gg domain ls`.
 
 ## Project memory
 
@@ -1672,7 +1678,7 @@ gg domain ls  shop                         every address, and who each is waitin
 ```
 
 The generated one is idempotent and instant: Gagarin holds the wildcard record
-and the wildcard certificate, so there is nothing to coordinate and nobody to
+and the wildcard certificate for the project's cluster, so there is nothing to coordinate and nobody to
 wait for.
 
 **A name the user owns is two steps, and only the first is Gagarin's.** The
@@ -1707,6 +1713,9 @@ waiting on the user, because there is nothing for them to do about it.
   putting it on the internet.
 - **One domain, one service, across all of Gagarin.** A name somebody else holds
   is refused, and the refusal does not say who holds it.
+- **A subdomain is told a CNAME to the cluster's name**, such as
+  `CNAME fr-par-1.apps.gagarin.cloud`, not to the old shared `apps.gagarin.cloud`.
+  Pass on the target the command prints; it depends on the project's cluster.
 - **An apex domain gets an A record, not a CNAME** — DNS does not permit a CNAME
   at an apex. The command prints the right one; do not "correct" it.
 
@@ -1733,11 +1742,11 @@ side. Trust it over your own memory of what you deployed: it reads the cluster,
 not just the database.
 
 ```
-project shop  (id 7f3a9c2e)
+project shop  (id 7f3a9c2e)  fr-par-1
 
      SERVICE  KIND      SIZE  READY  PORT  REACHES      IMAGE
   ●  web      service   s     1/1    8080  api          web:1757030400
-  ●  └ https://web-7f3a9c2e.gagarin.cloud
+  ●  └ https://web-7f3a9c2e.fr-par-1.apps.gagarin.cloud
   ●  api      service   m     1/1    4000  db, openai◆  api:1757030112
   ●  db       postgres  m     1/1    5432  —            postgres:17
   ◆  openai   external  —     —      —     —            —
