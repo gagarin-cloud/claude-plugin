@@ -65,7 +65,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg registry login` | log docker in (CI, or docker installed after gg) |
 | `gg projects` | every project you can reach, and your role on it |
 | `gg init PROJECT` | create a project |
-| `gg ship P/SVC:PORT` | build the current directory, push it, run it |
+| `gg ship P/SVC:PORT` | build the current directory, push it, run it — tagged with the commit when the tree is clean |
 | `gg build P/IMAGE[:TAG]` / `gg push P/IMAGE:TAG` / `gg deploy P/SVC:PORT IMAGE:TAG` | the same three steps apart, which is what CI wants |
 | `gg run P/JOB IMAGE:TAG` | run an image to completion as a job, wait, print what it wrote, exit with its code |
 | `gg run P/JOB IMAGE:TAG --schedule "0 3 * * *"` | run it on a schedule instead of now; returns at once |
@@ -114,6 +114,10 @@ project exists or that you may write to it. A `viewer` role means every deploy
 will be refused, and that is worth knowing before the attempt rather than
 after. Project names are unique only within one account, so two rows can share
 a name — the id column tells them apart.
+
+Once per session, before the first build or CI change, check the rest of the
+toolchain — docker running, git, and `gh` or `glab` signed in — as "What else
+the machine should have" describes. Only a stopped docker blocks a ship.
 
 ## Which project this repository is: `.gagarin.json`
 
@@ -298,6 +302,44 @@ gagarin-cloud/tap/gg`, `scoop update gg`, `winget upgrade Gagarin.gg`,
 `go install ...@latest`). Everything else documented here is present in gg
 v0.42.0 and later.
 
+## What else the machine should have
+
+`gg` itself shells out to one thing, docker. The rest of this skill leans on a
+few more tools without checking for them, so check once, early, rather than
+meeting each one as a failure halfway through a deploy:
+
+| tool | needed for | without it |
+|---|---|---|
+| `gg` | everything | see "Installing gg" |
+| `docker`, running | `gg ship`, `gg build`, `gg push` | deploy an image already in the registry; read state; roll back |
+| `docker buildx` | `gg registry copy` | bring the image in from a machine that has it |
+| `git` | committing `.gagarin.json`; `gg build` and `gg ship` tagging the image with the commit; knowing which forge the repository lives on | it all still deploys, but nothing ties an image to the source it came from, and the next session has no note of the project |
+| `gh` (GitHub) or `glab` (GitLab), signed in | putting a CI credential in the secret store without it touching disk or the transcript; watching the pipeline you wrote run | the human sets the secret in the web UI themselves, and you cannot see whether the first run went green |
+| `jq` | pulling one value out of `--format json` | read the JSON yourself; nothing in gg requires it |
+
+Only the forge CLI that matches the repository matters: `git remote get-url
+origin` says whether it is GitHub or GitLab. Check what is there, and whether
+the forge CLI is signed in, with:
+
+```
+command -v git docker gh glab jq
+docker info >/dev/null 2>&1 && echo "docker is up"
+git rev-parse --is-inside-work-tree && git remote get-url origin
+gh auth status        # or: glab auth status
+```
+
+What to do about a missing one:
+
+- **Do not install docker, git or a forge CLI yourself, and do not sign in for
+  your human.** Say which is missing, what it costs them, and the install
+  command for their platform (`brew install gh`, `winget install GitHub.cli`,
+  `sudo apt install gh`; `glab` the same way). `gh auth login` and `glab auth
+  login` are theirs to run, like `gg login`.
+- **Only docker blocks a ship.** Everything else degrades: say what is lost and
+  carry on with the task.
+- **Not a git repository** is not a failure either. Deploy it; then mention that
+  `.gagarin.json` only helps the next session if it is committed somewhere.
+
 ## If you cannot install gg: the MCP server
 
 Gagarin also answers MCP at `https://mcp.gagarin.cloud/mcp`. An MCP client —
@@ -405,6 +447,18 @@ So it pipes straight into a secret store and nothing has to touch disk:
 gh secret set GAGARIN_TOKEN --body "$(gg creds create --name "github actions: acme/web" 2>/dev/null)"
 ```
 
+On GitLab, the same with `glab`:
+
+```
+glab variable set GAGARIN_TOKEN --masked --value "$(gg creds create --name "gitlab ci: acme/web" 2>/dev/null)"
+```
+
+**Without `gh` or `glab` signed in, do not mint it yourself** — there is no way
+from here to a secret store that does not pass through your output. Ask your
+human to run `gg creds create --name "…"` in their own terminal and paste it
+into the repository's CI settings, or to install and sign in to the forge CLI
+first.
+
 Name it after where it will live. `gg creds` is a list somebody reads months
 later deciding what is still wanted, and "token" tells them nothing then.
 
@@ -464,10 +518,11 @@ Six things about that are load-bearing:
   `gg registry copy` all shell out to docker, and docker has no idea what a
   Gagarin credential is until that runs. The failure without it is a `401` out
   of `docker push`, whose hint says exactly this.
-- **Tag with the commit, not with the clock.** `gg build` invents a clock tag
-  when you give it none, which is right for a person shipping and wrong for a
-  pipeline: `${{ github.sha }}` is what makes a deploy reproducible and a
-  rollback explicable.
+- **Tag with the commit, explicitly.** `gg build` with no tag uses the short
+  hash when the checkout is clean and the clock when it is not — and a
+  pipeline that generates a file or two before the build is not clean. Pass
+  `${{ github.sha }}` so the tag never depends on that: it is what makes a
+  deploy reproducible and a rollback explicable.
 - **`gg push` requires the tag** where `gg build` does not — a push moves
   something that already exists, and "whichever one I built last" is not a name.
 - **The deploy step is separate on purpose.** Publishing on every commit and
@@ -487,6 +542,20 @@ Six things about that are load-bearing:
 Everything else works identically in any CI: the token in the environment, `gg`
 on the PATH, docker available if you build. GitLab, Buildkite and Cloud Build
 need no special handling.
+
+**Watch the first run** if the forge CLI is there, once your human has pushed —
+that push is theirs to make. Give `gh` the run's id, because without one it
+asks which run, and you cannot answer a prompt:
+
+```
+id=$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$id" --exit-status
+gh run view "$id" --log-failed        # only if it failed
+```
+
+On GitLab, `glab ci status --live` follows the pipeline for the current branch
+and `glab ci trace <job>` prints a job's log. Then `gg status` for what the
+deploy step actually did.
 
 ### 4. Afterwards
 
@@ -532,6 +601,16 @@ Notes on each step, in the order they bite:
   point `--context` at it — `gg ship shop/api:8080 --context ./api` from a
   monorepo root. `--file` names the Dockerfile when it is not called that, or
   lives outside the context directory.
+- **Commit before you ship, if you can.** With no tag given — and `gg ship`
+  never takes one — gg tags the image with the short hash of the commit
+  (`web:3f9c2ab`), so `gg history` says which code each revision ran and a
+  rollback names what it puts back. Only when the work tree is clean: any
+  modified or untracked file in the repository, inside the build context or
+  not, and it falls back to a clock tag (`web:1761830000`) and says so on
+  stderr. Ignored files do not count. No git or no repository is the clock too,
+  silently. Either way the tag is printed; read it from the output rather than
+  predicting it. Do not commit the user's work just to get a hash: ask, or
+  ship with the clock. (gg v0.55.0 and older always use the clock.)
 - **The number after the colon is the port the container listens on.** It
   defaults to 8080. Say it anyway when you know it: a service answering on the
   wrong port is a hang, not an error.
@@ -1831,7 +1910,8 @@ accounts are not part of this model, and mentioning them is a regression.
 ## Undoing a deploy
 
 ```
-gg history  shop/web          revision numbers, images, when, and who
+gg history  shop/web          revision numbers, images, when, and who —
+                              an image tagged with a short hash is that commit
 gg rollback shop/web          put the previous deploy back
 gg rollback shop/web --to 3   a particular revision
 gg rollback shop/config       put an external's previous values back

@@ -61,7 +61,21 @@ or `winget install Gagarin.gg`. Or `go install
 github.com/gagarin-cloud/gg@latest`, or a `.deb`, `.rpm` or `.apk` from the
 [releases page](https://github.com/gagarin-cloud/gg/releases).
 
-`/gagarin:setup` walks through it, including `gg login`.
+`/gagarin:setup` walks through it, including `gg login`, and then checks the
+rest of the toolchain:
+
+- **docker**, running — required to build and push. `gg ship` cannot work
+  without it.
+- **git** — recommended. It is how `.gagarin.json` gets committed, and with a
+  clean work tree `gg build` and `gg ship` tag the image with the commit's
+  short hash instead of the clock.
+- **gh** or **glab**, signed in — recommended once you want CI. It puts the
+  deploy credential in the secret store without it passing through the agent's
+  output, and lets the agent watch the pipeline run.
+- **jq** — optional.
+
+Setup installs only `gg`; for the rest it tells you what is missing and how to
+get it.
 
 ## Not using Claude Code?
 

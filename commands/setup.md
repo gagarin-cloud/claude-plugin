@@ -1,6 +1,6 @@
 ---
-description: Get this machine ready to deploy on Gagarin Cloud — install the gg CLI if it is missing, then sign in.
-allowed-tools: Bash(gg *), Bash(~/.local/bin/gg *), Bash(command -v *), Bash(curl *), Bash(sh), Bash(sh *), Bash(powershell *), Bash(pwsh *), Bash(brew *), Bash(scoop *), Bash(winget *), Bash(go install *), Bash(go env *)
+description: Get this machine ready to deploy on Gagarin Cloud — install the gg CLI if it is missing, sign in, and check the rest of the toolchain (docker, git, gh or glab).
+allowed-tools: Bash(gg *), Bash(~/.local/bin/gg *), Bash(command -v *), Bash(curl *), Bash(sh), Bash(sh *), Bash(powershell *), Bash(pwsh *), Bash(brew *), Bash(scoop *), Bash(winget *), Bash(go install *), Bash(go env *), Bash(docker info*), Bash(docker buildx version*), Bash(git rev-parse *), Bash(git remote get-url *), Bash(gh auth status*), Bash(glab auth status*)
 ---
 
 Get the user ready to use Gagarin Cloud. Work through this in order and stop at
@@ -59,8 +59,8 @@ Do not download from a host you guessed.
 
 ## 3. Sign in
 
-Run `gg whoami` first. If it names an account, they are already set up — say so
-and stop.
+Run `gg whoami` first. If it names an account, they are already signed in — say
+so and go on to step 4.
 
 Otherwise run `gg login`. It prints a link and a code and exits. **Relay both to
 the user exactly as printed** — you never handle a secret here. They open the
@@ -86,7 +86,38 @@ command (`brew upgrade --cask gagarin-cloud/tap/gg`, `scoop update gg`,
 `winget upgrade Gagarin.gg`, or `go install ...@latest`). Do this rather than
 letting an agent meet a refusal later and conclude the command does not exist.
 
-## 5. Tell them what they have
+## 5. Check the rest of the toolchain
+
+`gg` is the only thing setup installs, but a good session needs more. Check
+each, and report them together as one short list rather than one by one. Of
+docker, git, gh, glab and jq, whichever has no path printed here is missing:
+
+!`command -v docker git gh glab jq || true`
+
+Then, for what was found:
+
+- `docker info` — is the daemon actually up? `docker buildx version` — only
+  `gg registry copy` needs it.
+- `git rev-parse --is-inside-work-tree` and `git remote get-url origin` — is
+  this a repository, and does it live on GitHub, GitLab or somewhere else?
+- `gh auth status` (GitHub) or `glab auth status` (GitLab) — only the one that
+  matches the remote. Present but not signed in is the same as missing.
+
+What each one is for, and what to tell them when it is missing:
+
+| tool | why | if missing |
+|---|---|---|
+| docker, running | **required** to build and push — `gg ship` is impossible without it | ask them to install or start Docker Desktop, OrbStack or colima (Docker Engine on Linux) |
+| git | commit `.gagarin.json`, tie each image to a commit, find the forge | recommended; deploys still work |
+| gh / glab, signed in | set the CI secret without it passing through the transcript, and watch the pipeline run | recommended once they want CI; they run `gh auth login` / `glab auth login` themselves |
+| jq | pull one value out of JSON output | optional |
+
+Do not install or start any of these yourself, and do not sign in to `gh` or
+`glab` for them. Give the install command for their platform (`brew install gh`,
+`winget install GitHub.cli`, `sudo apt install gh`; `glab` the same way) and let
+them decide. A missing optional tool is a sentence, not a blocker.
+
+## 6. Tell them what they have
 
 Briefly: `gg` drives everything, and the `gagarin` skill in this plugin
 documents it. If this session also has the Gagarin MCP tools connected, mention
