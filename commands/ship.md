@@ -25,6 +25,10 @@ here than three steps in:
 - `gg` is on the PATH. If it is not, tell the user to run `/gagarin:setup` first.
   The MCP tools cannot substitute: they deliberately cannot build or push an
   image, and that is most of this command.
-- `docker` is running. `gg build` and `gg push` shell out to it.
+- `docker` is running (`docker info`). `gg build` and `gg push` shell out to it.
+  If it is not, ask the user to start or install it and stop there.
+
+`git` is not required. If the directory is not a repository, or `git` is
+missing, say once that `.gagarin.json` will not be committed and carry on.
 
 Do not deploy anything yourself. Delegate.

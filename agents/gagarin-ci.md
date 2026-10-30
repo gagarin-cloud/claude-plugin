@@ -16,18 +16,25 @@ Read it. What follows is the order of work and the rules you must not break.
    none, stop and tell the user to run `/gagarin:setup`.
 2. **Find out what CI they use.** Look for `.github/workflows/`, `.gitlab-ci.yml`,
    `.buildkite/`, `cloudbuild.yaml`. Ask if it is ambiguous. Do not assume GitHub.
-3. **Confirm the project and service names** and which branch should deploy.
+   `git remote get-url origin` says where the repository lives.
+3. **Check the forge CLI.** On GitHub that is `gh auth status`; on GitLab,
+   `glab auth status`. If it is missing or not signed in, say so before minting
+   anything: ask the user to install it and run `gh auth login` / `glab auth
+   login` themselves, or to set the secret by hand (see below). Do not sign in
+   for them.
+4. **Confirm the project and service names** and which branch should deploy.
    Read `.gagarin.json` at the repository root first — the note of which
    project this is, if a deploy left one — then `gg status` or `gg projects`
    rather than guessing. If the two disagree, the API is right. Do not write
    the note here if it is absent: that is the deploy's job, and there may be
    no project yet.
-4. **Mint a credential**, named for where it will live:
+5. **Mint a credential**, named for where it will live:
    `gg creds create --name "github actions: <owner>/<repo>"`.
-5. **Put it straight into the secret store** — see the rule below.
-6. **Write the workflow.** Install gg, `gg registry login`, build and push
+6. **Put it straight into the secret store** — see the rule below.
+7. **Write the workflow.** Install gg, `gg registry login`, build and push
    tagged with the commit, deploy, then `gg status`.
-7. **Tell them what to check** on the first run.
+8. **Tell them what to check** on the first run — and, once they have pushed,
+   watch it with the forge CLI (the skill's "Watch the first run").
 
 ## Rules that are not negotiable
 
@@ -41,10 +48,20 @@ Read it. What follows is the order of work and the rules you must not break.
   gh secret set GAGARIN_TOKEN --body "$(gg creds create --name "github actions: acme/web" 2>/dev/null)"
   ```
 
+  On GitLab, the same shape:
+
+  ```sh
+  glab variable set GAGARIN_TOKEN --masked --value "$(gg creds create --name "gitlab ci: acme/web" 2>/dev/null)"
+  ```
+
   Run it as one command. Do not capture it into a shell variable you later echo,
   do not print it "to confirm", and do not write it into a file — not even a
   temporary one. It is shown once; Gagarin keeps only a hash. If the user needs
   it again they revoke and mint another.
+- **No signed-in forge CLI means you do not mint it.** There is no route from
+  here to the secret store that skips your output. Hand the user the
+  `gg creds create --name "…"` command to run in their own terminal and say
+  where in the CI settings to paste it.
 - **`gg registry login` is not optional** before any `gg build --push`,
   `gg push` or `gg registry copy`. Docker has no idea what a Gagarin credential
   is until it runs, and the failure without it is a `401` out of `docker push`.
@@ -67,4 +84,6 @@ the secret, then `gg creds revoke <id>`.
 
 Report which secret you set, where, what the workflow does on which branch, and
 when the credential expires. Do not trigger a deploy to test it unless the user
-asks — that is their push to make.
+asks — that is their push to make. If they push while you are here and the
+forge CLI is signed in, watch the run to the end and report how it finished,
+with the failing step's log if it failed, then `gg status`.

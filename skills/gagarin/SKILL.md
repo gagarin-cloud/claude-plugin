@@ -115,6 +115,10 @@ will be refused, and that is worth knowing before the attempt rather than
 after. Project names are unique only within one account, so two rows can share
 a name — the id column tells them apart.
 
+Once per session, before the first build or CI change, check the rest of the
+toolchain — docker running, git, and `gh` or `glab` signed in — as "What else
+the machine should have" describes. Only a stopped docker blocks a ship.
+
 ## Which project this repository is: `.gagarin.json`
 
 Gagarin infers nothing from the directory you stand in, and gg stopped guessing
@@ -298,6 +302,44 @@ gagarin-cloud/tap/gg`, `scoop update gg`, `winget upgrade Gagarin.gg`,
 `go install ...@latest`). Everything else documented here is present in gg
 v0.42.0 and later.
 
+## What else the machine should have
+
+`gg` itself shells out to one thing, docker. The rest of this skill leans on a
+few more tools without checking for them, so check once, early, rather than
+meeting each one as a failure halfway through a deploy:
+
+| tool | needed for | without it |
+|---|---|---|
+| `gg` | everything | see "Installing gg" |
+| `docker`, running | `gg ship`, `gg build`, `gg push` | deploy an image already in the registry; read state; roll back |
+| `docker buildx` | `gg registry copy` | bring the image in from a machine that has it |
+| `git` | committing `.gagarin.json`; tagging an image with the commit; knowing which forge the repository lives on | it all still deploys, but nothing ties an image to the source it came from, and the next session has no note of the project |
+| `gh` (GitHub) or `glab` (GitLab), signed in | putting a CI credential in the secret store without it touching disk or the transcript; watching the pipeline you wrote run | the human sets the secret in the web UI themselves, and you cannot see whether the first run went green |
+| `jq` | pulling one value out of `--format json` | read the JSON yourself; nothing in gg requires it |
+
+Only the forge CLI that matches the repository matters: `git remote get-url
+origin` says whether it is GitHub or GitLab. Check what is there, and whether
+the forge CLI is signed in, with:
+
+```
+command -v git docker gh glab jq
+docker info >/dev/null 2>&1 && echo "docker is up"
+git rev-parse --is-inside-work-tree && git remote get-url origin
+gh auth status        # or: glab auth status
+```
+
+What to do about a missing one:
+
+- **Do not install docker, git or a forge CLI yourself, and do not sign in for
+  your human.** Say which is missing, what it costs them, and the install
+  command for their platform (`brew install gh`, `winget install GitHub.cli`,
+  `sudo apt install gh`; `glab` the same way). `gh auth login` and `glab auth
+  login` are theirs to run, like `gg login`.
+- **Only docker blocks a ship.** Everything else degrades: say what is lost and
+  carry on with the task.
+- **Not a git repository** is not a failure either. Deploy it; then mention that
+  `.gagarin.json` only helps the next session if it is committed somewhere.
+
 ## If you cannot install gg: the MCP server
 
 Gagarin also answers MCP at `https://mcp.gagarin.cloud/mcp`. An MCP client —
@@ -405,6 +447,18 @@ So it pipes straight into a secret store and nothing has to touch disk:
 gh secret set GAGARIN_TOKEN --body "$(gg creds create --name "github actions: acme/web" 2>/dev/null)"
 ```
 
+On GitLab, the same with `glab`:
+
+```
+glab variable set GAGARIN_TOKEN --masked --value "$(gg creds create --name "gitlab ci: acme/web" 2>/dev/null)"
+```
+
+**Without `gh` or `glab` signed in, do not mint it yourself** — there is no way
+from here to a secret store that does not pass through your output. Ask your
+human to run `gg creds create --name "…"` in their own terminal and paste it
+into the repository's CI settings, or to install and sign in to the forge CLI
+first.
+
 Name it after where it will live. `gg creds` is a list somebody reads months
 later deciding what is still wanted, and "token" tells them nothing then.
 
@@ -487,6 +541,20 @@ Six things about that are load-bearing:
 Everything else works identically in any CI: the token in the environment, `gg`
 on the PATH, docker available if you build. GitLab, Buildkite and Cloud Build
 need no special handling.
+
+**Watch the first run** if the forge CLI is there, once your human has pushed —
+that push is theirs to make. Give `gh` the run's id, because without one it
+asks which run, and you cannot answer a prompt:
+
+```
+id=$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$id" --exit-status
+gh run view "$id" --log-failed        # only if it failed
+```
+
+On GitLab, `glab ci status --live` follows the pipeline for the current branch
+and `glab ci trace <job>` prints a job's log. Then `gg status` for what the
+deploy step actually did.
 
 ### 4. Afterwards
 

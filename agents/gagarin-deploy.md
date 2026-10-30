@@ -45,7 +45,8 @@ nothing else waits on it.
 3. **`gg init <project>`** if it does not exist yet. Either way, once the
    project is settled, write `.gagarin.json` — `{ "project": { "id": "…",
    "name": "…" } }`, with the id `gg init` printed or the one `gg projects`
-   shows — and commit it. Identity only: no ports, no services, no env.
+   shows — and commit it if this is a git repository (if it is not, say so;
+   do not `git init` on your own). Identity only: no ports, no services, no env.
    Nothing reads it; you still name the project in every command.
 4. **Provision what it needs** — `gg resource add`. If a resource type exists,
    use it rather than running your own container.
