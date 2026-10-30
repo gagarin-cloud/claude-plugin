@@ -30,5 +30,8 @@ here than three steps in:
 
 `git` is not required. If the directory is not a repository, or `git` is
 missing, say once that `.gagarin.json` will not be committed and carry on.
+If it is a repository with uncommitted changes, tell the user the image will be
+tagged from the clock rather than the commit, and let them commit first if they
+want the hash — do not commit for them.
 
 Do not deploy anything yourself. Delegate.

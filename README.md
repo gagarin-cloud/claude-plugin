@@ -66,8 +66,9 @@ rest of the toolchain:
 
 - **docker**, running — required to build and push. `gg ship` cannot work
   without it.
-- **git** — recommended. It is how `.gagarin.json` gets committed and an image
-  gets tied to a commit.
+- **git** — recommended. It is how `.gagarin.json` gets committed, and with a
+  clean work tree `gg build` and `gg ship` tag the image with the commit's
+  short hash instead of the clock.
 - **gh** or **glab**, signed in — recommended once you want CI. It puts the
   deploy credential in the secret store without it passing through the agent's
   output, and lets the agent watch the pipeline run.

@@ -65,7 +65,7 @@ first; they are the parts that stop you getting it wrong.
 | `gg registry login` | log docker in (CI, or docker installed after gg) |
 | `gg projects` | every project you can reach, and your role on it |
 | `gg init PROJECT` | create a project |
-| `gg ship P/SVC:PORT` | build the current directory, push it, run it |
+| `gg ship P/SVC:PORT` | build the current directory, push it, run it — tagged with the commit when the tree is clean |
 | `gg build P/IMAGE[:TAG]` / `gg push P/IMAGE:TAG` / `gg deploy P/SVC:PORT IMAGE:TAG` | the same three steps apart, which is what CI wants |
 | `gg run P/JOB IMAGE:TAG` | run an image to completion as a job, wait, print what it wrote, exit with its code |
 | `gg run P/JOB IMAGE:TAG --schedule "0 3 * * *"` | run it on a schedule instead of now; returns at once |
@@ -313,7 +313,7 @@ meeting each one as a failure halfway through a deploy:
 | `gg` | everything | see "Installing gg" |
 | `docker`, running | `gg ship`, `gg build`, `gg push` | deploy an image already in the registry; read state; roll back |
 | `docker buildx` | `gg registry copy` | bring the image in from a machine that has it |
-| `git` | committing `.gagarin.json`; tagging an image with the commit; knowing which forge the repository lives on | it all still deploys, but nothing ties an image to the source it came from, and the next session has no note of the project |
+| `git` | committing `.gagarin.json`; `gg build` and `gg ship` tagging the image with the commit; knowing which forge the repository lives on | it all still deploys, but nothing ties an image to the source it came from, and the next session has no note of the project |
 | `gh` (GitHub) or `glab` (GitLab), signed in | putting a CI credential in the secret store without it touching disk or the transcript; watching the pipeline you wrote run | the human sets the secret in the web UI themselves, and you cannot see whether the first run went green |
 | `jq` | pulling one value out of `--format json` | read the JSON yourself; nothing in gg requires it |
 
@@ -518,10 +518,11 @@ Six things about that are load-bearing:
   `gg registry copy` all shell out to docker, and docker has no idea what a
   Gagarin credential is until that runs. The failure without it is a `401` out
   of `docker push`, whose hint says exactly this.
-- **Tag with the commit, not with the clock.** `gg build` invents a clock tag
-  when you give it none, which is right for a person shipping and wrong for a
-  pipeline: `${{ github.sha }}` is what makes a deploy reproducible and a
-  rollback explicable.
+- **Tag with the commit, explicitly.** `gg build` with no tag uses the short
+  hash when the checkout is clean and the clock when it is not — and a
+  pipeline that generates a file or two before the build is not clean. Pass
+  `${{ github.sha }}` so the tag never depends on that: it is what makes a
+  deploy reproducible and a rollback explicable.
 - **`gg push` requires the tag** where `gg build` does not — a push moves
   something that already exists, and "whichever one I built last" is not a name.
 - **The deploy step is separate on purpose.** Publishing on every commit and
@@ -600,6 +601,16 @@ Notes on each step, in the order they bite:
   point `--context` at it — `gg ship shop/api:8080 --context ./api` from a
   monorepo root. `--file` names the Dockerfile when it is not called that, or
   lives outside the context directory.
+- **Commit before you ship, if you can.** With no tag given — and `gg ship`
+  never takes one — gg tags the image with the short hash of the commit
+  (`web:3f9c2ab`), so `gg history` says which code each revision ran and a
+  rollback names what it puts back. Only when the work tree is clean: any
+  modified or untracked file in the repository, inside the build context or
+  not, and it falls back to a clock tag (`web:1761830000`) and says so on
+  stderr. Ignored files do not count. No git or no repository is the clock too,
+  silently. Either way the tag is printed; read it from the output rather than
+  predicting it. Do not commit the user's work just to get a hash: ask, or
+  ship with the clock. (gg v0.55.0 and older always use the clock.)
 - **The number after the colon is the port the container listens on.** It
   defaults to 8080. Say it anyway when you know it: a service answering on the
   wrong port is a hang, not an error.
@@ -1899,7 +1910,8 @@ accounts are not part of this model, and mentioning them is a regression.
 ## Undoing a deploy
 
 ```
-gg history  shop/web          revision numbers, images, when, and who
+gg history  shop/web          revision numbers, images, when, and who —
+                              an image tagged with a short hash is that commit
 gg rollback shop/web          put the previous deploy back
 gg rollback shop/web --to 3   a particular revision
 gg rollback shop/config       put an external's previous values back

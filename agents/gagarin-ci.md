@@ -65,9 +65,11 @@ Read it. What follows is the order of work and the rules you must not break.
 - **`gg registry login` is not optional** before any `gg build --push`,
   `gg push` or `gg registry copy`. Docker has no idea what a Gagarin credential
   is until it runs, and the failure without it is a `401` out of `docker push`.
-- **Tag with the commit, not the clock.** `${{ github.sha }}` is what makes a
-  deploy reproducible and a rollback explicable. `gg build` invents a clock tag
-  when given none, which is right for a person and wrong for a pipeline.
+- **Tag with the commit, explicitly.** `${{ github.sha }}` is what makes a
+  deploy reproducible and a rollback explicable. `gg build` with no tag uses
+  the short hash only when the checkout is clean and falls back to the clock
+  otherwise, and a pipeline that writes a file before building is not clean —
+  so never leave the tag to it in CI.
 - **`gg status` at the end is a report, not a gate.** Do not write a polling
   loop in CI. If they want a gate, gate on their own health check against the
   service's address.
