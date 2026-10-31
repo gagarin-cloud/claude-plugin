@@ -1151,7 +1151,7 @@ gg resource add shop/openai external --env-file .env.openai
 
 | type | what it is | storage | backups |
 |---|---|---|---|
-| `postgres` | PostgreSQL 17 | on a volume; survives restarts | nightly, kept 14 days |
+| `postgres` | PostgreSQL 17, with pgvector installed | on a volume; survives restarts | nightly, kept 14 days |
 | `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
 | `iggy` | Apache Iggy, a persistent message-streaming log | on a volume (10 GB unless `--storage`); survives restarts | nightly, kept 14 days — see the durability caveat |
 | `rabbitmq` | RabbitMQ 4.4.0 with the management plugin, a message broker for work queues | on a volume (10 GB unless `--storage`); durable queues and persistent messages survive restarts | **none** |
@@ -1162,6 +1162,12 @@ gg resource add shop/openai external --env-file .env.openai
 The types are named for what actually runs, not for the products they stand in
 for — an honesty you can pass on when somebody asks.
 
+- **`postgres` comes with pgvector.** The extension is installed but not enabled:
+  the application runs `CREATE EXTENSION IF NOT EXISTS vector;` in its own
+  migrations (the role it is given owns the database and may do this), and then
+  has a `vector` column type and hnsw/ivfflat indexes. For embeddings that sit
+  beside relational rows this is the simpler choice over a second resource; reach
+  for `qdrant` when retrieval is the whole workload.
 - **`qdrant` is Qdrant**, Apache-licensed, and it is what an application does
   retrieval against: embeddings in, nearest neighbours out. Three things about
   it are unlike every other type, and all three will bite an agent that assumes
