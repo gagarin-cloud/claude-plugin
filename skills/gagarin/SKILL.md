@@ -72,6 +72,7 @@ first; they are the parts that stop you getting it wrong.
 | the SDK (Go, Node, Python) | start runs from an application's own code — see "From code: the SDK" |
 | `gg registry copy P/IMAGE SOURCE` | bring an image you did not build into the project |
 | `gg resource add P/NAME TYPE` | provision postgres, qdrant, valkey, iggy, rabbitmq, s3 or external |
+| `gg resource add P/db postgres --ext vector --ext postgis` | the postgres extensions it should have, one `--ext` each — the whole set, every time you pass it |
 | `gg resource public P/NAME` | make an `s3` bucket listable and readable by anyone; `gg resource private P/NAME` undoes it |
 | `gg resource secrets P/NAME` | its connection values, for something outside the project |
 | `gg resource secrets P/NAME --names` | just the variable names it publishes, no values |
@@ -1140,7 +1141,7 @@ A resource is provisioned rather than deployed. There is no image to choose, no
 version to pass and no Dockerfile.
 
 ```
-gg resource add shop/db postgres --size m --storage 20
+gg resource add shop/db postgres --size m --storage 20 --ext vector
 gg resource add shop/vectors qdrant
 gg resource add shop/cache valkey
 gg resource add shop/events iggy
@@ -1151,7 +1152,7 @@ gg resource add shop/openai external --env-file .env.openai
 
 | type | what it is | storage | backups |
 |---|---|---|---|
-| `postgres` | PostgreSQL 17 | on a volume; survives restarts | nightly, kept 14 days |
+| `postgres` | PostgreSQL 17, with the extensions you ask for (`vector`, `postgis`, …) | on a volume; survives restarts | nightly, kept 14 days |
 | `qdrant` | vector database, for retrieval | on a volume; survives restarts | nightly, kept 14 days |
 | `iggy` | Apache Iggy, a persistent message-streaming log | on a volume (10 GB unless `--storage`); survives restarts | nightly, kept 14 days — see the durability caveat |
 | `rabbitmq` | RabbitMQ 4.4.0 with the management plugin, a message broker for work queues | on a volume (10 GB unless `--storage`); durable queues and persistent messages survive restarts | **none** |
@@ -1177,6 +1178,15 @@ for — an honesty you can pass on when somebody asks.
   - **There is no MongoDB here, and no document store either.** If a user wants
     documents rather than vectors, Gagarin has no type for it — run one as an
     ordinary service with a volume.
+
+  - **Qdrant or `vector` on a postgres?** Both store embeddings. If the
+    application wants relational tables and embeddings in one database —
+    joined in one query, written in one transaction — ask for the `vector`
+    extension on its postgres (see "Postgres extensions" below). That is the
+    default for an application that already needs a postgres and adds
+    retrieval: one resource, one set of credentials, one backup. Reach for
+    `qdrant` when the vectors *are* the product — the search is what the
+    application is for, and it deserves a database of its own.
 
   Gagarin ran a `ferretdb` type from 2026-09-04 to 2026-09-06 and it is **gone**:
   it promised MongoDB compatibility and did not keep the promise past the simple
@@ -1252,6 +1262,82 @@ for — an honesty you can pass on when somebody asks.
   **external can** — its values are theirs — and `gg rollback P/NAME` is how a
   config change is undone. See the external section below. An `s3` cannot
   either, for the same reason.
+
+### Postgres extensions
+
+A `postgres` takes **extensions**: the set of postgres extensions the database
+should have, named exactly as `CREATE EXTENSION` names them.
+
+```
+gg resource add shop/db postgres --ext vector --ext postgis    create it with both, or restate it
+```
+
+Over MCP it is the `extensions` list on `add_resource`; on the API it is the
+`extensions` field of the resource's PUT body,
+`{"type":"postgres","extensions":["vector","postgis"]}`. `--ext` takes one name
+and is repeated, like `--deps` and `--env` — not a comma-separated list. The
+rules are the same everywhere:
+
+- **It is the whole set, not a delta.** `--ext vector` on a postgres that has
+  `vector` and `postgis` asks for postgis to go. To add one, restate every one it
+  already has plus the new one — `gg status` lists what it has.
+- **Leave it out and the extensions stay as they are**, exactly like `--size`.
+  An empty list (`[]`, or `--ext ""`) means none.
+- **Only a postgres has them.** `extensions` on any other type is refused with
+  `no_extensions`.
+- **On create, they exist before the database is first ready.** Adding one to
+  an existing postgres is **immediate, on the running server, with no
+  restart** — every postgres runs the same image with all of them compiled in.
+- **Dropping one asks no one** — the one removal that does not, because a drop
+  refuses rather than loses anything, so a drop that succeeds cost nothing.
+  **It is never CASCADE**: a column, an index, a view or a SQL-standard
+  function that uses the extension — a `vector` column, say — stops it. **And
+  it is refused while the extension's own tables hold the user's data**:
+  pg_cron's jobs (`cron.job`) and their run history, pg_partman's partition
+  config (`partman.part_config`), a spatial reference system the user added to
+  PostGIS's `spatial_ref_sys`. Nothing depends on those tables, so without the
+  guard a plain DROP would delete every scheduled job. Either refusal is
+  `extensions_failed` (HTTP 409), carrying postgres's own reason — "column e
+  of table items depends on type vector", or "extension pg_cron holds 1 row(s)
+  of your data in cron.job; remove them first if losing them is what you
+  mean". It is one transaction, so a refused change changes nothing — not the
+  extensions, and not the rest of what the command restated. To really drop
+  it, remove what is in the way first — and ask your human before deleting
+  their jobs or data to do it. A plpgsql function that uses the extension is
+  not tracked by postgres, so it breaks when next called; nothing is lost, and
+  adding the extension back mends it.
+- **Requirements are added for you.** Asking for `earthdistance` also gives
+  `cube`.
+- **Ask the platform; do not run `CREATE EXTENSION` by hand** for anything in
+  the catalogue below. `app` is a superuser in its own pod and *can*, but what
+  it creates that way is not recorded in `extensions`: the platform does not
+  know about it, the status does not show it, and nothing keeps it. Asking the
+  platform records it and keeps it.
+
+**The catalogue — everything `extensions` accepts:**
+
+| name | what it is for |
+|---|---|
+| `vector` | pgvector: vector columns with HNSW and IVFFlat indexes, for embeddings |
+| `postgis` | PostGIS: geometry and geography types, spatial indexes and functions (no raster) |
+| `pg_cron` | scheduled SQL, run by the database itself (jobs run in database `app`) |
+| `pg_partman` | partition management, created in schema `partman` |
+| `pgaudit` | audit logging to the resource's log (set `pgaudit.log` to turn it on) |
+
+Plus the contrib extensions that ship with postgres: `pg_stat_statements`,
+`pg_trgm`, `pgcrypto`, `uuid-ossp`, `citext`, `hstore`, `ltree`, `unaccent`,
+`fuzzystrmatch`, `btree_gin`, `btree_gist`, `cube`, `earthdistance` (adds
+`cube`), `intarray`, `tablefunc`, `amcheck`, `pg_buffercache`.
+
+- **"pgvector" is called `vector`.** That is its name in postgres, and asking
+  for `pgvector` is refused with a hint saying so. There is no pgvector
+  resource type: embeddings in a postgres are this extension.
+- **Not offered:** timescaledb (its licence forbids exactly a hosted service),
+  raster, `dblink`/`postgres_fdw`/`file_fdw`, untrusted languages. Any name
+  outside the catalogue is refused with `unknown_extension`, and the hint lists
+  every name that is offered.
+- Nothing else about the postgres changes: the same connection variables, sizes,
+  storage, price, rotation and nightly backups.
 
 ### Connecting one: the single call
 
@@ -1679,6 +1765,12 @@ durability is only what survives a restart (durable queues, persistent messages)
 gg resource backups shop/db     what is stored, newest last
 gg resource backup  shop/db     take one now — do this before a risky migration
 ```
+
+**Any postgres backup restores into any postgres.** A dump carries its
+extensions and every postgres has every one available, so a database that used
+`vector` or `postgis` comes back with them; the restored resource's
+`extensions` are read back from the database. There is nothing to ask for
+before restoring.
 
 `gg resource backup` reads the database and writes an object; it is safe at any
 time and the nightly schedule keeps running regardless.
@@ -2194,6 +2286,9 @@ gg prints failures as `[code] message`, usually with a `hint:` line under it.
 | `unknown_resource_type` | `postgres`, `qdrant`, `valkey`, `iggy`, `rabbitmq`, `s3` or `external` |
 | `wrong_resource_type` | another type already holds that name. Destroy it — which throws its data away — or pick another name |
 | `invalid_storage` | 1 to 100 GB |
+| `no_extensions` | only a `postgres` takes extensions: drop `--ext` |
+| `unknown_extension` | not in the catalogue; the hint lists every name offered. `pgvector` is called `vector`. timescaledb is not offered |
+| `extensions_failed` | HTTP 409: postgres refused — usually dropping an extension a column still uses, or one whose own tables still hold the user's rows (pg_cron's jobs, say). The message is postgres's own reason. **Nothing changed**; remove what is in the way, then restate the set |
 | `no_storage` | this type has no volume (valkey, s3): drop `--storage` |
 | `no_size` | an external or an s3 runs nothing: drop `--size` |
 | `invalid_env` | write `API_KEY`, not `OPENAI_API_KEY` — the prefix is the resource's name |
