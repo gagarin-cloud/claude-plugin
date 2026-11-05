@@ -7,8 +7,8 @@
 # checks the thing that was actually wanted, and catches a renamed command or
 # flag, which co-location never did.
 #
-# With paths, it checks those markdown files instead of the skill: the recipes
-# repository and the website run it over the commands they print.
+# With paths, it checks those markdown or workflow files instead of the skill:
+# the recipes repository and the website run it over the commands they print.
 #
 # Needs `gg` on the PATH. CI installs the latest release.
 set -euo pipefail

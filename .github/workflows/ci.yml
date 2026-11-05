@@ -30,6 +30,9 @@ jobs:
       - name: Manifests and skill frontmatter
         run: ./scripts/check.sh
 
+      - name: What the command checker reads
+        run: python3 -m unittest discover -s scripts
+
   agrees-with-gg:
     # The skill used to live inside the gg binary, which guaranteed the two
     # shipped together and nothing more. This checks that they agree.
