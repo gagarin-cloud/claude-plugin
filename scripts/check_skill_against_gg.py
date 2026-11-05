@@ -1,11 +1,14 @@
-"""Check every `gg ...` in the skill, or in the markdown files named, against
-the real CLI.
+"""Check every `gg ...` in the skill, or in the markdown or workflow files
+named, against the real CLI.
 
 See check-skill-against-gg.sh for why this exists. With no arguments it checks
 the skill; with paths it checks those files instead, which is how the recipes
 repository and the website check the commands they print:
 
     python3 scripts/check_skill_against_gg.py recipes/*/README.md
+
+A YAML file (a CI workflow) has no code spans, so every line of it is read as
+one, and a step's leading `run:` is dropped there and in fenced blocks alike.
 
 It walks gg's own help to learn the command tree and each command's flags, then
 pulls every gg invocation out of the skill's code spans and fenced blocks and
@@ -18,6 +21,8 @@ import sys
 
 SKILL = "skills/gagarin/SKILL.md"
 WORD = re.compile(r"^[a-z][a-z-]*$")
+# A workflow step names its command after `run:` — `- run: gg status acme`.
+RUN = re.compile(r"^(?:-\s*)?run:\s*")
 
 
 def help_for(path):
@@ -55,8 +60,10 @@ def walk():
     return tree
 
 
-def invocations(text, roots=frozenset()):
+def invocations(text, roots=frozenset(), yaml=False):
     """Every gg invocation in a code span or fenced block, as a token list.
+
+    With yaml, the text is a workflow file and every line counts as a block line.
 
     The command map writes continuations without the prefix — `gg creds` /
     `creds create --name N` — so inside a table row a span whose first token is
@@ -64,12 +71,15 @@ def invocations(text, roots=frozenset()):
     backticks is a word, not an invocation.
     """
     spans = []
-    for line in text.splitlines():
-        in_table = line.lstrip().startswith("|")
-        for span in re.findall(r"`([^`\n]+)`", line):
-            spans.append((span, in_table))
-    for block in re.findall(r"```[a-z]*\n(.*?)```", text, re.S):
-        spans.extend((line, False) for line in block.splitlines())
+    if yaml:
+        spans.extend((line, False) for line in text.splitlines())
+    else:
+        for line in text.splitlines():
+            in_table = line.lstrip().startswith("|")
+            for span in re.findall(r"`([^`\n]+)`", line):
+                spans.append((span, in_table))
+        for block in re.findall(r"```[a-z]*\n(.*?)```", text, re.S):
+            spans.extend((line, False) for line in block.splitlines())
 
     out = []
     for raw, in_table in spans:
@@ -82,7 +92,7 @@ def invocations(text, roots=frozenset()):
                 # two or more spaces ends the command and starts prose.
                 sub = re.split(r"\s{2,}", sub.strip())[0]
                 sub = sub.split(" #")[0]
-                toks = sub.split()
+                toks = RUN.sub("", sub).split()
                 if not toks:
                     continue
                 if toks[0] == "gg":
@@ -107,7 +117,9 @@ def main():
         except OSError as e:
             sys.exit(f"cannot read {name}: {e.strerror}")
 
-    for name, toks in ((n, t) for n, text in texts.items() for t in invocations(text, known_roots)):
+    found = ((n, t) for n, text in texts.items()
+             for t in invocations(text, known_roots, yaml=n.endswith((".yml", ".yaml"))))
+    for name, toks in found:
         where = "" if files == [SKILL] else f"{name}: "
         args = toks[1:]
         if not args:
