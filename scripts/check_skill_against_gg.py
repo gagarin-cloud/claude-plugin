@@ -117,8 +117,12 @@ def main():
         except OSError as e:
             sys.exit(f"cannot read {name}: {e.strerror}")
 
-    found = ((n, t) for n, text in texts.items()
-             for t in invocations(text, known_roots, yaml=n.endswith((".yml", ".yaml"))))
+    found = [(n, t) for n, text in texts.items()
+             for t in invocations(text, known_roots, yaml=n.endswith((".yml", ".yaml")))]
+    # A file named for checking that yields nothing was read the wrong way —
+    # a workflow taken for markdown, say — and passing it would check nothing.
+    for name in sorted(set(files) - {n for n, _ in found}):
+        errors.append(f"{name}: no gg invocations found; is this the file meant?")
     for name, toks in found:
         where = "" if files == [SKILL] else f"{name}: "
         args = toks[1:]
