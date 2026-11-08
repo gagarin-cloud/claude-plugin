@@ -45,13 +45,13 @@ Read it. What follows is the order of work and the rules you must not break.
   stderr, precisely so it can be piped without touching disk:
 
   ```sh
-  gh secret set GAGARIN_TOKEN --body "$(gg creds create --name "github actions: acme/web" 2>/dev/null)"
+  gg creds create --name "github actions: acme/web" 2>/dev/null | gh secret set GAGARIN_TOKEN
   ```
 
   On GitLab, the same shape:
 
   ```sh
-  glab variable set GAGARIN_TOKEN --masked --value "$(gg creds create --name "gitlab ci: acme/web" 2>/dev/null)"
+  gg creds create --name "gitlab ci: acme/web" 2>/dev/null | glab variable set GAGARIN_TOKEN --masked
   ```
 
   Run it as one command. Do not capture it into a shell variable you later echo,

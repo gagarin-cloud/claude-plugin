@@ -441,13 +441,13 @@ The secret goes to **stdout alone on its line**; everything else goes to stderr.
 So it pipes straight into a secret store and nothing has to touch disk:
 
 ```
-gh secret set GAGARIN_TOKEN --body "$(gg creds create --name "github actions: acme/web" 2>/dev/null)"
+gg creds create --name "github actions: acme/web" 2>/dev/null | gh secret set GAGARIN_TOKEN
 ```
 
 On GitLab, the same with `glab`:
 
 ```
-glab variable set GAGARIN_TOKEN --masked --value "$(gg creds create --name "gitlab ci: acme/web" 2>/dev/null)"
+gg creds create --name "gitlab ci: acme/web" 2>/dev/null | glab variable set GAGARIN_TOKEN --masked
 ```
 
 **Without `gh` or `glab` signed in, do not mint it yourself** — there is no way
@@ -699,7 +699,8 @@ gg ship   shop/web:8080 --env-file .env
   wants it used, pass the flag; never assume a file should be read.
 - Precedence: `--env` beats every file, later `--env-file` beats earlier ones,
   and **a resource's injected variable beats all of it** (see "Resources").
-- There is **no interpolation**. `B=${A}` sets `B` to the literal `${A}`.
+- There is **no interpolation**. A value that names another variable with a
+  dollar sign is stored as those characters, not as that variable's value.
 - Env is **replaced on every deploy, not merged.** To remove a variable, deploy
   without it. To keep one, keep passing it.
 - The file supplies **values only**. It cannot name services, set ports or say
@@ -1046,7 +1047,7 @@ delivered the way every other secret is — as an `external` resource, never in
 exactly the `GAGARIN_TOKEN` the SDK reads:
 
 ```
-printf 'TOKEN=%s\n' "$(gg creds create --name "shop/api: starts jobs" 2>/dev/null)" > .env.gagarin
+gg creds create --name "shop/api: starts jobs" 2>/dev/null | sed 's/^/TOKEN=/' > .env.gagarin
 gg resource add shop/gagarin external --env-file .env.gagarin
 gg deps add shop/api gagarin
 rm .env.gagarin

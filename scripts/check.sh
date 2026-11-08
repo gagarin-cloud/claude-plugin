@@ -110,10 +110,11 @@ ok "no inline shell spans"
 # The directory holds a plugin whose files read a credential from the user's
 # environment or files in code, because its MCP server could be where it goes,
 # and says so of examples too. A connection URL is a credential (it holds the
-# password), and so is anything a $(…) reads out of `gg resource secrets`.
+# password), and so is anything a $(…) reads out of `gg resource secrets` or
+# mints with `gg creds create`: pipe it instead.
 # Describe these in prose instead.
 CRED='(TOKEN|API_KEY|SECRET|PASSWORD|_URL)'
-hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*secrets\\.|\\\$\\{?[A-Z_]*${CRED}|\\\$\\([^)]*resource secrets|credentials\\.json" $MD)
+hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*secrets\\.|\\\$\\{?[A-Z_]*${CRED}|\\\$\\([^)]*(resource secrets|creds create)|credentials\\.json" $MD)
 [ -z "$hits" ] || fail "reads a credential from the environment or a file in code; describe it in prose:
 $hits"
 ok "no credential read from the environment"
