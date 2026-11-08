@@ -83,9 +83,10 @@ def invocations(text, roots=frozenset(), yaml=False):
 
     out = []
     for raw, in_table in spans:
-        # Split a pipeline, but not a markdown table cell — the rows are split
-        # on "/" above, and a literal | inside a row would already have ended it.
-        for part in re.split(r"\s*(?:\|\||&&|;)\s*", raw.strip()):
+        # Split a command list or a pipeline: what is piped out of gg is the
+        # next command's, not gg's flags. A table cell writes a literal pipe as
+        # \|, which stays put.
+        for part in re.split(r"\s*(?:\|\||&&|;|(?<!\\)\|)\s*", raw.strip()):
             for sub in part.split(" / "):
                 # The skill aligns a description after a command in fenced
                 # blocks — "gg creds        what has access, ..." — so a run of

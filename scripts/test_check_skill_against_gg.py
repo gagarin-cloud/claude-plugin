@@ -25,6 +25,14 @@ class Markdown(unittest.TestCase):
         text = "| `gg creds` / `creds create --name N` | mint one |\n"
         self.assertIn(["gg", "creds", "create", "--name", "N"], invocations(text, ROOTS))
 
+    def test_pipe_ends_the_command(self):
+        text = "```\ngg creds create --name ci 2>/dev/null | glab variable set T --masked\n```\n"
+        self.assertEqual(invocations(text), [["gg", "creds", "create", "--name", "ci", "2>/dev/null"]])
+
+    def test_escaped_pipe_in_table_does_not_split(self):
+        text = "| `gg status acme \\| head` | page it |\n"
+        self.assertEqual(invocations(text, ROOTS), [["gg", "status", "acme", "\\|", "head"]])
+
     def test_run_step_in_yaml_fence(self):
         text = "```yaml\n      - name: release\n        run: gg deploy acme/web:8080 web:v1\n```\n"
         self.assertEqual(invocations(text), [["gg", "deploy", "acme/web:8080", "web:v1"]])
