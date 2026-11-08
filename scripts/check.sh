@@ -109,16 +109,22 @@ ok "no inline shell spans"
 
 # The directory holds a plugin whose files read a credential from the user's
 # environment or files in code, because its MCP server could be where it goes,
-# and says so of examples too. Describe these in prose instead.
-CRED='(TOKEN|API_KEY|SECRET|PASSWORD)'
-hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*secrets\\.|\\\$\\{?[A-Z_]*${CRED}|credentials\\.json" $MD)
+# and says so of examples too. A connection URL is a credential (it holds the
+# password), and so is anything a $(…) reads out of `gg resource secrets`.
+# Describe these in prose instead.
+CRED='(TOKEN|API_KEY|SECRET|PASSWORD|_URL)'
+hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*secrets\\.|\\\$\\{?[A-Z_]*${CRED}|\\\$\\([^)]*resource secrets|credentials\\.json" $MD)
 [ -z "$hits" ] || fail "reads a credential from the environment or a file in code; describe it in prose:
 $hits"
 ok "no credential read from the environment"
 
-# The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB.
-icon=$(jq -r '.icon // empty' "$PLUGIN")
-[ -n "$icon" ] || fail "plugin.json has no icon"
+# The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB, at the path
+# the directory looks in by itself. Naming it in plugin.json is held for review:
+# a script names plugin.json, plugin.json names an image, and an image is
+# something a shell could be pointed at.
+icon=.claude-plugin/icon.png
+jq -e 'has("icon") | not' "$PLUGIN" >/dev/null \
+  || fail "plugin.json names the icon; leave it at $icon and drop the field"
 [ -f "$icon" ] || fail "icon $icon does not exist"
 [ "$(od -An -tx1 -N8 "$icon" | tr -d ' \n')" = "89504e470d0a1a0a" ] || fail "icon $icon is not a PNG"
 # Width and height are the IHDR's first two big-endian words, bytes 16 to 23.
@@ -127,6 +133,17 @@ read -r w h <<< "$(od -An -tu1 -j16 -N8 "$icon" | tr -s ' \n' ' ' \
 [ "$w" = "$h" ] || fail "icon is ${w}x${h}, not square"
 [ "$w" -ge 512 ] && [ "$w" -le 2048 ] || fail "icon is ${w} px a side, not 512 to 2048"
 [ "$(wc -c < "$icon")" -lt 2097152 ] || fail "icon is 2 MB or more"
+# Metadata chunks carry text, and the scan reads it: a generator's C2PA record
+# held "curl" and was flagged as download-and-run. Keep only the pixels.
+chunks=$(python3 - "$icon" <<'EOF'
+import struct, sys
+d = open(sys.argv[1], "rb").read(); i = 8
+while i < len(d):
+    n, = struct.unpack(">I", d[i:i+4]); print(d[i+4:i+8].decode("latin1")); i += 12 + n
+EOF
+)
+extra=$( (grep -vxE 'IHDR|PLTE|tRNS|IDAT|IEND' <<< "$chunks" || true) | sort -u | paste -sd ' ' -)
+[ -z "$extra" ] || fail "icon carries metadata chunks ($extra); strip them"
 ok "icon ${w}x${h}"
 
 for k in privacyPolicyUrl termsOfServiceUrl; do

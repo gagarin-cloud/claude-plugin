@@ -1390,18 +1390,16 @@ resource happens to be called `qdrant`. The first thing to try is to have the
 application read `DB_URL` — one line in the app, and nothing about it can go
 stale.
 
-If you genuinely cannot change the application, read the value out and pass it
-under the name it wants:
+If you genuinely cannot change the application, copy the value under the name it
+wants: read `DB_URL` from `gg resource secrets shop/db`, write it as
+`DATABASE_URL` into an env file that never gets committed, and pass that file to
+the deploy with `--env-file`. Referring to `DB_URL` in your own shell would not
+work — the injected variables exist inside the pod, not in the shell running
+`gg`.
 
-```
-gg deploy shop/api:8080 api:v3 --deps db \
-  --env DATABASE_URL="$(gg resource secrets shop/db --format json | jq -r .env.DB_URL)"
-```
-
-Note what that is: **a copy**, and the only stale thing in the model. `$DB_URL`
-alone would not work — the injected variables exist inside the pod, not in the
-shell running `gg`. Say so rather than leaving a second copy of a password in a
-deploy nobody remembers making.
+Note what that is: **a copy**, and the only stale thing in the model. Say so
+rather than leaving a second copy of a password in a deploy nobody remembers
+making.
 
 Four rules that follow, and each one fails quietly if you get it wrong:
 
