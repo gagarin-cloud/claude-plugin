@@ -119,6 +119,17 @@ hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*s
 $hits"
 ok "no credential read from the environment"
 
+# The skill has to name credential variables (DB_PASSWORD, <NAME>_API_KEY): they
+# are what a resource injects. The directory holds "a credential-named
+# environment variable beside a remote url" unless the url is the vendor's own,
+# so the skill links nowhere but Gagarin. In-cluster names and loopback are not
+# remote. Other links belong in the README or /gagarin:setup.
+hits=$(grep -rnoE --include='*.md' 'https?://[A-Za-z0-9.-]+' skills \
+  | grep -vE '://(([A-Za-z0-9-]+\.)*gagarin\.cloud|127\.0\.0\.1|[A-Za-z0-9-]+)$' || true)
+[ -z "$hits" ] || fail "the skill links a host that is not Gagarin's; move it to the README or /gagarin:setup:
+$hits"
+ok "the skill links only Gagarin"
+
 # The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB, at the path
 # the directory looks in by itself. Naming it in plugin.json is held for review:
 # a script names plugin.json, plugin.json names an image, and an image is

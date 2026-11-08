@@ -257,12 +257,12 @@ Alternatives, if the machine already has the tool:
   gagarin-cloud/tap/gg` (no `--cask`) put an older `gg` there, homebrew will not
   replace one kind with the other on its own: run `brew uninstall gg` once,
   then install the cask.
-- Windows: `scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket`
-  then `scoop install gagarin/gg`, or `winget install Gagarin.gg`.
+- Windows: `winget install Gagarin.gg`.
 - Any platform with a Go toolchain: `go install github.com/gagarin-cloud/gg@latest`
-- Linux: a `.deb`, `.rpm` or `.apk` from
-  https://github.com/gagarin-cloud/gg/releases. Installing one needs `sudo`, so
-  give your human the command.
+
+Scoop and the Linux `.deb`, `.rpm` and `.apk` packages are listed by
+`/gagarin:setup` and in the plugin's README. A Linux package needs `sudo` to
+install, so give your human the command.
 
 Do not download from a host you guessed, and do not carry on without `gg`.
 
