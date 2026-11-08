@@ -1866,10 +1866,16 @@ on their side. `gg status` says which of the two of you it is waiting on:
 
 | reading | who acts |
 |---|---|
-| waiting for DNS | **them** — the record does not exist yet |
+| waiting for DNS | **them** — the record does not exist at the zone's own nameservers |
 | DNS points elsewhere | **them** — it resolves, but not to Gagarin |
+| waiting for cache revalidation | **nobody** — the record is right; a resolver is still holding its old answer, and it clears within the zone's negative TTL |
 | issuing certificate | Gagarin — nothing for them to do |
 | ok | nobody |
+
+Gagarin orders the certificate only once the zone's own nameservers point the name
+here, so claiming a name before creating the record is harmless. On `waiting for
+cache revalidation`, do not touch the DNS record and do not retry; tell the user it
+clears by itself (often 15–60 minutes) and the certificate follows.
 
 The generated address only ever reads `ok` or `issuing certificate`. It is never
 waiting on the user, because there is nothing for them to do about it.
