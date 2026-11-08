@@ -76,3 +76,6 @@ jobs:
         run: |
           gg version
           ./scripts/check-skill-against-gg.sh
+
+      - name: The bundled installers are gg's latest
+        run: ./scripts/check-installers-against-gg.sh
