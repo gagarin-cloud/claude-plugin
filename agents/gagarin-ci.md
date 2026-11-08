@@ -65,7 +65,7 @@ Read it. What follows is the order of work and the rules you must not break.
 - **`gg registry login` is not optional** before any `gg build --push`,
   `gg push` or `gg registry copy`. Docker has no idea what a Gagarin credential
   is until it runs, and the failure without it is a `401` out of `docker push`.
-- **Tag with the commit, explicitly.** `${{ github.sha }}` is what makes a
+- **Tag with the commit, explicitly.** GitHub's `github.sha` is what makes a
   deploy reproducible and a rollback explicable. `gg build` with no tag uses
   the short hash only when the checkout is clean and falls back to the clock
   otherwise, and a pipeline that writes a file before building is not clean —

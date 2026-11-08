@@ -77,6 +77,7 @@ jobs:
         run: |
           gg version
           ./scripts/check-skill-against-gg.sh
+          ./scripts/check-skill-against-gg.sh skills/gagarin/examples/deploy.yml
 
       - name: The bundled installers are gg's latest
         run: ./scripts/check-installers-against-gg.sh

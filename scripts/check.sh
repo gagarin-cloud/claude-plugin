@@ -119,6 +119,15 @@ hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*s
 $hits"
 ok "no credential read from the environment"
 
+# Nor a word the shell fills in, in a skill or an agent: the directory cannot
+# tell where a command built from one sends data, and holds it when a
+# credential is named anywhere near. Workflows and other examples that need
+# ${{ … }} or $(…) live in files of their own, such as skills/gagarin/examples.
+hits=$(grep_md '\$[({A-Za-z_]' skills agents)
+[ -z "$hits" ] || fail "a word the shell fills in; describe it in prose or move it to an example file:
+$hits"
+ok "no shell-filled words in the skill or agents"
+
 # The skill has to name credential variables (DB_PASSWORD, <NAME>_API_KEY): they
 # are what a resource injects. The directory holds "a credential-named
 # environment variable beside a remote url" unless the url is the vendor's own,

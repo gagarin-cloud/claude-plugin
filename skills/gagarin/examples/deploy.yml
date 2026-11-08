@@ -1,0 +1,29 @@
+# The workflow the gagarin skill describes under "The workflow". Copy it to
+# .github/workflows/deploy.yml and change acme/web, the port and the env file.
+name: deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GAGARIN_TOKEN: ${{ secrets.GAGARIN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install gg
+        run: go install github.com/gagarin-cloud/gg@latest
+
+      - name: log docker in to the gagarin registry
+        run: gg registry login
+
+      - name: build and publish
+        run: gg build acme/web:${{ github.sha }} --push
+
+      - name: release
+        run: gg deploy acme/web:8080 web:${{ github.sha }} --env-file .env.production
+
+      - name: say what the cluster is doing
+        run: gg status acme

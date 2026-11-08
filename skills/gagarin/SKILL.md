@@ -226,22 +226,11 @@ it cannot do is build an image, and that is often the whole task.
 Run the install script that ships with this skill, in `scripts/` next to this
 file. It is the same script gagarin.cloud serves, checked against gg's release
 every day. It verifies the download against the release's `checksums.txt`,
-installs to `~/.local/bin` without `sudo`, and never edits a shell profile. On
-macOS or Linux:
-
-```
-sh "${CLAUDE_SKILL_DIR}/scripts/install.sh"
-```
-
-On Windows, in PowerShell:
-
-```
-powershell -File "${CLAUDE_SKILL_DIR}/scripts/install.ps1"
-```
-
-(or `powershell -ExecutionPolicy Bypass -File …` for that one run if execution
-policy blocks it). If your client does not fill in `${CLAUDE_SKILL_DIR}`, use the
-path of the directory this file is in. Windows installs to
+installs to `~/.local/bin` without `sudo`, and never edits a shell profile.
+Give it the full path of this skill's directory: on macOS or Linux, run
+`scripts/install.sh` from there with `sh`; on Windows, run
+`scripts/install.ps1` with `powershell -File` (adding `-ExecutionPolicy Bypass`
+for that one run if execution policy blocks it). Windows installs to
 `%LOCALAPPDATA%\Programs\gg` and adds it to the user's `PATH`.
 `GAGARIN_INSTALL_DIR` and `GAGARIN_INSTALL_VERSION` change the directory and pin
 a version.
@@ -480,36 +469,9 @@ same name: in GitHub Actions, a job-level `env` entry that reads it from the
 ### 3. The workflow
 
 The shape that matters: install gg, log docker in, publish on every commit,
-release on the ones you mean.
-
-```yaml
-name: deploy
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    # env: set GAGARIN_TOKEN here, from the repository secret of that name (see above)
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: install gg
-        run: go install github.com/gagarin-cloud/gg@latest
-
-      - name: log docker in to the gagarin registry
-        run: gg registry login
-
-      - name: build and publish
-        run: gg build acme/web:${{ github.sha }} --push
-
-      - name: release
-        run: gg deploy acme/web:8080 web:${{ github.sha }} --env-file .env.production
-
-      - name: say what the cluster is doing
-        run: gg status acme
-```
+release on the ones you mean. It is `examples/deploy.yml` in this skill's
+directory, a GitHub Actions workflow: copy it to `.github/workflows/deploy.yml`
+and change `acme/web`, the port and the env file to this repository's.
 
 Six things about that are load-bearing:
 
@@ -519,9 +481,9 @@ Six things about that are load-bearing:
   of `docker push`, whose hint says exactly this.
 - **Tag with the commit, explicitly.** `gg build` with no tag uses the short
   hash when the checkout is clean and the clock when it is not — and a
-  pipeline that generates a file or two before the build is not clean. Pass
-  `${{ github.sha }}` so the tag never depends on that: it is what makes a
-  deploy reproducible and a rollback explicable.
+  pipeline that generates a file or two before the build is not clean. The
+  workflow tags with GitHub's `github.sha` so the tag never depends on that: it
+  is what makes a deploy reproducible and a rollback explicable.
 - **`gg push` requires the tag** where `gg build` does not — a push moves
   something that already exists, and "whichever one I built last" is not a name.
 - **The deploy step is separate on purpose.** Publishing on every commit and
@@ -544,13 +506,10 @@ need no special handling.
 
 **Watch the first run** if the forge CLI is there, once your human has pushed —
 that push is theirs to make. Give `gh` the run's id, because without one it
-asks which run, and you cannot answer a prompt:
-
-```
-id=$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')
-gh run watch "$id" --exit-status
-gh run view "$id" --log-failed        # only if it failed
-```
+asks which run, and you cannot answer a prompt. `gh run list --workflow
+deploy.yml --limit 1 --json databaseId` prints it; then
+`gh run watch <id> --exit-status`, and `gh run view <id> --log-failed` only if
+it failed.
 
 On GitLab, `glab ci status --live` follows the pipeline for the current branch
 and `glab ci trace <job>` prints a job's log. Then `gg status` for what the
@@ -971,7 +930,7 @@ the run's `revision` at once), `wait` (until that revision ends), `runAndWait`
 import { Gagarin, GagarinError } from "@gagarin-cloud/sdk";
 
 const gg = new Gagarin();
-const name = `export-${id}`;                       // one name per run; see below
+const name = "export-" + id;                       // one name per run; see below
 try {
   const sub = await gg.jobs.run("shop", name, {
     image: "export:v4", env: { EXPORT_ID: id }, deps: ["files"], timeoutSeconds: 900,
