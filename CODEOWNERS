@@ -1,3 +1,3 @@
 # The skill is the product, written for an agent. A change to it is a change to
 # what every agent believes about how to deploy.
-/skills/gagarin/   @sharpvik
+/plugin/skills/gagarin/   @sharpvik

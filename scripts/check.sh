@@ -74,7 +74,7 @@ ok "skill frontmatter"
 # repository's own tooling lives outside it (scripts/, .github/).
 while IFS= read -r f; do
   case "$f" in
-    *.md|*.txt|*.json|*.yml|*.yaml|*/LICENSE|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico) ;;
+    *.md|*.txt|*.json|*.yml|*.yaml|*/LICENSE|*/NOTICE|*/CHANGELOG|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico) ;;
     *) fail "$f: the directory accepts only Markdown, text, JSON, YAML and images in the plugin folder" ;;
   esac
   case "$f" in
@@ -84,14 +84,19 @@ while IFS= read -r f; do
   iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1 || fail "$f: not UTF-8"
   # A NUL cannot survive a shell variable, so count them instead of grepping.
   [ "$(LC_ALL=C tr -cd '\0' < "$f" | wc -c)" -eq 0 ] || fail "$f: holds a NUL byte"
-done < <(git ls-files "$ROOT")
+done < <(git ls-files --cached --others --exclude-standard "$ROOT")
 ok "plugin folder holds only text and images"
+
+# The plugin folder ships its own copy of the license, so the directory and an
+# installed plugin see one; keep it the same file as the repository's.
+cmp -s LICENSE "$ROOT/LICENSE" || fail "$ROOT/LICENSE differs from LICENSE; copy it over"
+ok "license copy agrees"
 
 # Likewise, a frontmatter key the directory does not know is refused outright.
 # Its list is not public; this is the Claude Code reference's set less what hands
 # a component more power than text (hooks, mcpServers, permissionMode, skills…).
 # Loosen it only when a re-validation has shown the key is accepted.
-frontmatter_keys() { frontmatter "$1" | grep -oE '^[A-Za-z][A-Za-z-]*:' | tr -d :; }
+frontmatter_keys() { frontmatter "$1" | grep -oE '^[A-Za-z_][A-Za-z0-9_-]*:' | tr -d :; }
 check_keys() {
   local kind=$1 allowed=$2 f k
   shift 2
@@ -122,7 +127,7 @@ for pattern in \
   "iex[[:space:]]*\\([[:space:]]*${FETCH}[[:space:]]" \
   "${FETCH}[[:space:]][^\`]*(-[A-Za-z]*[oO]|--output|-OutFile)[[:space:]][^\`]*(&&|;)[[:space:]]*(${RUN}[[:space:]]|\\./|&)"; do
   hits=$(grep_md "$pattern" $MD)
-  [ -z "$hits" ] || fail "downloaded code run straight away; run the bundled installer instead:
+  [ -z "$hits" ] || fail "downloaded code run straight away; use a package manager or hand the one-liner to the user:
 $hits"
 done
 ok "no download-and-run"

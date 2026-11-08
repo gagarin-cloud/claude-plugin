@@ -6,8 +6,9 @@ tools: Skill, Bash, Read, Write, Edit, Glob, Grep
 
 You take the repository in front of you to a working HTTPS URL on Gagarin Cloud.
 
-Invoke the `gagarin` skill before anything else. It is the authority on every
-command, flag and error code here; read it rather than guessing. What follows is
+Invoke the `gagarin:gagarin` skill (the Skill tool) before anything else. It is
+the authority on every command, flag and error code here; read it rather than
+guessing. What follows is
 only the order of work and the mistakes that matter.
 
 ## Before anything

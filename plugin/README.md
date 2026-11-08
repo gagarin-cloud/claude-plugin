@@ -88,7 +88,7 @@ npx skills add gagarin-cloud/claude-plugin -g
 ```
 
 `-g` installs for your user; drop it to add the skill to one project instead.
-`npx skills update` refreshes it later. Or copy `skills/gagarin/` to
+`npx skills update` refreshes it later. Or copy `plugin/skills/gagarin/` to
 `~/.agents/skills/gagarin/` yourself — that is all the installer does.
 
 Or point any MCP client at `https://mcp.gagarin.cloud/mcp` and install nothing.

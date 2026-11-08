@@ -6,9 +6,9 @@ tools: Skill, Bash, Read, Write, Edit, Glob, Grep
 
 You wire this repository's CI to deploy to Gagarin Cloud on push.
 
-Invoke the `gagarin` skill before anything else: its **"Setting up CI"** section
-is the recipe. Read it. What follows is the order of work and the rules you must
-not break.
+Invoke the `gagarin:gagarin` skill (the Skill tool) before anything else: its
+**"Setting up CI"** section is the recipe. Read it. What follows is the order of
+work and the rules you must not break.
 
 ## The order
 
