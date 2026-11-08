@@ -1,6 +1,5 @@
 ---
 description: Get this machine ready to deploy on Gagarin Cloud — install the gg CLI if it is missing, sign in, and check the rest of the toolchain (docker, git, gh or glab).
-allowed-tools: Bash(gg *), Bash(~/.local/bin/gg *), Bash(command -v *), Bash(curl *), Bash(sh), Bash(sh *), Bash(powershell *), Bash(pwsh *), Bash(brew *), Bash(scoop *), Bash(winget *), Bash(go install *), Bash(go env *), Bash(docker info*), Bash(docker buildx version*), Bash(git rev-parse *), Bash(git remote get-url *), Bash(gh auth status*), Bash(glab auth status*)
 ---
 
 Get the user ready to use Gagarin Cloud. Work through this in order and stop at
@@ -8,25 +7,24 @@ the first step that needs them.
 
 ## 1. Is `gg` already here?
 
-!`command -v gg >/dev/null 2>&1 && gg version || echo "gg is not installed"`
-
-If it printed a version, skip to step 3.
+Run `command -v gg`. If it finds nothing, look where the install script puts it:
+`~/.local/bin/gg` (Windows: `%LOCALAPPDATA%\Programs\gg\gg.exe`). If either is
+there, run `gg version` (by its full path if it is not on `PATH`) and skip to
+step 3. If it is installed but not on `PATH`, give the user the same `PATH`
+advice as step 2 does.
 
 ## 2. Install it
 
-Run the install script. It checks the download against the release's
-`checksums.txt`, puts `gg` in `~/.local/bin` without `sudo`, and never edits a
-shell profile.
+Run the install script that ships with this plugin. It checks the download
+against the release's `checksums.txt`, puts `gg` in `~/.local/bin` without
+`sudo`, and never edits a shell profile.
 
-- macOS or Linux: `curl -fsSL https://gagarin.cloud/install.sh | sh`
-- Windows (PowerShell): `irm https://gagarin.cloud/install.ps1 | iex`
+- macOS or Linux: `sh "${CLAUDE_PLUGIN_ROOT}/skills/gagarin/scripts/install.sh"`
+- Windows (PowerShell): `powershell -File "${CLAUDE_PLUGIN_ROOT}/skills/gagarin/scripts/install.ps1"`
+  — if execution policy blocks it, add `-ExecutionPolicy Bypass` for that one run
 
-If your harness refuses or prompts on piping into a shell, download it first and
-run it as a file:
-
-- macOS or Linux: `curl -fsSLo install.sh https://gagarin.cloud/install.sh && sh install.sh`
-- Windows: `irm https://gagarin.cloud/install.ps1 -OutFile install.ps1; ./install.ps1`
-  — if execution policy blocks it, `powershell -ExecutionPolicy Bypass -File install.ps1`
+If `${CLAUDE_PLUGIN_ROOT}` was not filled in, use the directory this plugin is
+installed in. Do not fall back to downloading a script from the internet.
 
 On Windows it installs to `%LOCALAPPDATA%\Programs\gg` and adds that to the
 user's `PATH`. `GAGARIN_INSTALL_DIR` changes the directory and
@@ -81,7 +79,7 @@ script or archive install replaces itself after checking the checksum, and a
 `gg upgrade --dry-run` previews it first.
 
 `gg upgrade` exists from v0.54.0. If theirs is older it will say the command is
-unknown: re-run the install one-liner from step 2, or use the old per-manager
+unknown: re-run the install script from step 2, or use the old per-manager
 command (`brew upgrade --cask gagarin-cloud/tap/gg`, `scoop update gg`,
 `winget upgrade Gagarin.gg`, or `go install ...@latest`). Do this rather than
 letting an agent meet a refusal later and conclude the command does not exist.
@@ -90,9 +88,8 @@ letting an agent meet a refusal later and conclude the command does not exist.
 
 `gg` is the only thing setup installs, but a good session needs more. Check
 each, and report them together as one short list rather than one by one. Of
-docker, git, gh, glab and jq, whichever has no path printed here is missing:
-
-!`command -v docker git gh glab jq || true`
+docker, git, gh, glab and jq, whichever `command -v docker git gh glab jq`
+prints no path for is missing.
 
 Then, for what was found:
 

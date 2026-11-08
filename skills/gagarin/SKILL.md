@@ -223,32 +223,28 @@ If your client is already connected to Gagarin's MCP server you may not need
 `gg` at all — read "If you cannot install gg" below first, because the one thing
 it cannot do is build an image, and that is often the whole task.
 
-Run the install script. It verifies the download against the release's
-`checksums.txt`, installs to `~/.local/bin` without `sudo`, and never edits a
-shell profile. On macOS or Linux:
+Run the install script that ships with this skill, in `scripts/` next to this
+file. It is the same script gagarin.cloud serves, checked against gg's release
+every day. It verifies the download against the release's `checksums.txt`,
+installs to `~/.local/bin` without `sudo`, and never edits a shell profile. On
+macOS or Linux:
 
 ```
-curl -fsSL https://gagarin.cloud/install.sh | sh
+sh "${CLAUDE_SKILL_DIR}/scripts/install.sh"
 ```
 
 On Windows, in PowerShell:
 
 ```
-irm https://gagarin.cloud/install.ps1 | iex
+powershell -File "${CLAUDE_SKILL_DIR}/scripts/install.ps1"
 ```
 
-If your harness refuses or prompts on piping into a shell, download the script
-and run it as a file instead:
-
-```
-curl -fsSLo install.sh https://gagarin.cloud/install.sh && sh install.sh
-```
-
-On Windows: `irm https://gagarin.cloud/install.ps1 -OutFile install.ps1; ./install.ps1`
-(or `powershell -ExecutionPolicy Bypass -File install.ps1` if execution policy
-blocks it). Windows installs to `%LOCALAPPDATA%\Programs\gg` and adds it to the
-user's `PATH`. `GAGARIN_INSTALL_DIR` and `GAGARIN_INSTALL_VERSION` change the
-directory and pin a version.
+(or `powershell -ExecutionPolicy Bypass -File …` for that one run if execution
+policy blocks it). If your client does not fill in `${CLAUDE_SKILL_DIR}`, use the
+path of the directory this file is in. Windows installs to
+`%LOCALAPPDATA%\Programs\gg` and adds it to the user's `PATH`.
+`GAGARIN_INSTALL_DIR` and `GAGARIN_INSTALL_VERSION` change the directory and pin
+a version.
 
 If `~/.local/bin` is not on `PATH`, the script prints the `export` line to add.
 Call `gg` by its full path (`~/.local/bin/gg`) for the rest of your session and

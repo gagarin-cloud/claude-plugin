@@ -111,6 +111,18 @@ The consequence to keep in mind: **the skill can now be newer than someone's
 `scripts/bump-version.sh [major|minor|patch]` moves the version in both
 manifests, which is what makes Claude Code re-install for people who have it.
 
+`skills/gagarin/scripts/install.sh` and `install.ps1` are copies of gg's
+installers, so setup runs a file that shipped in the plugin rather than one
+fetched at run time. CI compares them with gg's latest release every day; when
+it goes red, copy the new ones in.
+
+## Privacy
+
+The plugin talks to Gagarin's own MCP server. Its bundled installer, which runs
+only when setup installs `gg`, downloads `gg` from its GitHub releases. What
+Gagarin keeps and why is in the [privacy policy](https://gagarin.cloud/privacy);
+the [terms](https://gagarin.cloud/terms) cover the rest.
+
 ## License
 
 MIT.
