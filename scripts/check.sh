@@ -139,33 +139,15 @@ hits=$(grep -rnoE --include='*.md' 'https?://[A-Za-z0-9.-]+' skills \
 $hits"
 ok "the skill links only Gagarin"
 
-# The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB, at the path
-# the directory looks in by itself. Naming it in plugin.json is held for review:
-# a script names plugin.json, plugin.json names an image, and an image is
-# something a shell could be pointed at.
-icon=.claude-plugin/icon.png
-jq -e 'has("icon") | not' "$PLUGIN" >/dev/null \
-  || fail "plugin.json names the icon; leave it at $icon and drop the field"
-[ -f "$icon" ] || fail "icon $icon does not exist"
-[ "$(od -An -tx1 -N8 "$icon" | tr -d ' \n')" = "89504e470d0a1a0a" ] || fail "icon $icon is not a PNG"
-# Width and height are the IHDR's first two big-endian words, bytes 16 to 23.
-read -r w h <<< "$(od -An -tu1 -j16 -N8 "$icon" | tr -s ' \n' ' ' \
-  | awk '{print $1*16777216+$2*65536+$3*256+$4, $5*16777216+$6*65536+$7*256+$8}')"
-[ "$w" = "$h" ] || fail "icon is ${w}x${h}, not square"
-[ "$w" -ge 512 ] && [ "$w" -le 2048 ] || fail "icon is ${w} px a side, not 512 to 2048"
-[ "$(wc -c < "$icon")" -lt 2097152 ] || fail "icon is 2 MB or more"
-# Metadata chunks carry text, and the scan reads it: a generator's C2PA record
-# held "curl" and was flagged as download-and-run. Keep only the pixels.
-chunks=$(python3 - "$icon" <<'EOF'
-import struct, sys
-d = open(sys.argv[1], "rb").read(); i = 8
-while i < len(d):
-    n, = struct.unpack(">I", d[i:i+4]); print(d[i+4:i+8].decode("latin1")); i += 12 + n
-EOF
-)
-extra=$( (grep -vxE 'IHDR|PLTE|tRNS|IDAT|IEND' <<< "$chunks" || true) | sort -u | paste -sd ' ' -)
-[ -z "$extra" ] || fail "icon carries metadata chunks ($extra); strip them"
-ok "icon ${w}x${h}"
+# The listing icon is uploaded in the developer portal, not shipped: in the
+# plugin, every route to one drew a finding. Naming it in plugin.json was held
+# ("an image the plugin's code could run"), a generator's C2PA chunk read as
+# "curl", and even bare deflate bytes spelled "iRM" and "iWr".
+for f in .claude-plugin/icon.png .claude-plugin/icon.svg assets/icon.png assets/icon.svg; do
+  [ ! -e "$f" ] || fail "$f ships an icon; upload it in the developer portal instead"
+done
+jq -e 'has("icon") | not' "$PLUGIN" >/dev/null || fail "plugin.json names an icon; upload it in the developer portal instead"
+ok "no icon shipped"
 
 # The listing needs a privacy policy, and a README line with "privacy" and a
 # link is enough. The plugin.json fields for it draw an "unrecognized field"
