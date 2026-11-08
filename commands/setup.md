@@ -7,7 +7,11 @@ the first step that needs them.
 
 ## 1. Is `gg` already here?
 
-Run `command -v gg`. If it finds one, run `gg version` and skip to step 3.
+Run `command -v gg`. If it finds nothing, look where the install script puts it:
+`~/.local/bin/gg` (Windows: `%LOCALAPPDATA%\Programs\gg\gg.exe`). If either is
+there, run `gg version` (by its full path if it is not on `PATH`) and skip to
+step 3. If it is installed but not on `PATH`, give the user the same `PATH`
+advice as step 2 does.
 
 ## 2. Install it
 
@@ -18,6 +22,9 @@ against the release's `checksums.txt`, puts `gg` in `~/.local/bin` without
 - macOS or Linux: `sh "${CLAUDE_PLUGIN_ROOT}/skills/gagarin/scripts/install.sh"`
 - Windows (PowerShell): `powershell -File "${CLAUDE_PLUGIN_ROOT}/skills/gagarin/scripts/install.ps1"`
   — if execution policy blocks it, add `-ExecutionPolicy Bypass` for that one run
+
+If `${CLAUDE_PLUGIN_ROOT}` was not filled in, use the directory this plugin is
+installed in. Do not fall back to downloading a script from the internet.
 
 On Windows it installs to `%LOCALAPPDATA%\Programs\gg` and adds that to the
 user's `PATH`. `GAGARIN_INSTALL_DIR` changes the directory and

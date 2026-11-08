@@ -118,8 +118,9 @@ it goes red, copy the new ones in.
 
 ## Privacy
 
-The MCP server is Gagarin's own, and the plugin sends nothing anywhere else.
-What Gagarin keeps and why is in the [privacy policy](https://gagarin.cloud/privacy);
+The plugin talks to Gagarin's own MCP server. Its bundled installer, which runs
+only when setup installs `gg`, downloads `gg` from its GitHub releases. What
+Gagarin keeps and why is in the [privacy policy](https://gagarin.cloud/privacy);
 the [terms](https://gagarin.cloud/terms) cover the rest.
 
 ## License

@@ -16,6 +16,20 @@ ENDPOINT="https://mcp.gagarin.cloud/mcp"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 ok()   { echo "  ok  $*"; }
 
+frontmatter() { awk '/^---$/{n++; next} n==1' "$1"; }
+
+# grep -rnE over the Markdown in the given directories. Exit 1 is "nothing
+# found"; anything above is an error, which must not read as a clean scan. BSD
+# grep exits 1 for a missing path too, so check the directories first.
+grep_md() {
+  local pattern=$1 rc=0 out d
+  shift
+  for d in "$@"; do [ -d "$d" ] || fail "no $d/ to scan"; done
+  out=$(grep -rnE "$pattern" --include='*.md' "$@") || rc=$?
+  [ "$rc" -le 1 ] || fail "grep could not scan $*"
+  printf '%s' "$out"
+}
+
 for f in "$PLUGIN" "$MARKET" "$MCP"; do
   jq empty "$f" 2>/dev/null || fail "invalid JSON: $f"
 done
@@ -40,10 +54,9 @@ jq -e --arg u "$ENDPOINT" '.mcpServers.gagarin.url == $u' "$MCP" >/dev/null \
 ok "mcp endpoint"
 
 # The skill's name must match its directory or clients skip it silently.
-awk '/^---$/{n++; next} n==1' "$SKILL" > /tmp/fm.$$
-trap 'rm -f /tmp/fm.$$' EXIT
-grep -qx 'name: gagarin' /tmp/fm.$$ || fail "SKILL.md frontmatter name must be 'gagarin'"
-grep -qE '^description: .{40,}' /tmp/fm.$$ || fail "SKILL.md needs a description of real length"
+fm=$(frontmatter "$SKILL")
+grep -qx 'name: gagarin' <<< "$fm" || fail "SKILL.md frontmatter name must be 'gagarin'"
+grep -qE '^description: .{40,}' <<< "$fm" || fail "SKILL.md needs a description of real length"
 ok "skill frontmatter"
 
 # What follows is Anthropic's directory review, run here so a finding it cleared
@@ -54,16 +67,23 @@ ok "skill frontmatter"
 # one fetched and piped into a shell: what runs then is not what was reviewed.
 # The README may say it, for humans; commands, agents and the skill may not.
 MD="commands agents skills"
-if hits=$(grep -rnE '\|[[:space:]]*(sh|bash|zsh|iex)([[:space:]]|`|$)' --include='*.md' $MD); then
-  fail "download piped into a shell; run the bundled installer instead:
+FETCH='(curl|wget|irm|iwr|Invoke-RestMethod|Invoke-WebRequest)'
+RUN='(sudo[[:space:]]+)?(sh|bash|zsh|dash|iex|pwsh|powershell|python3?|node|perl|ruby)'
+for pattern in \
+  "\\|[[:space:]]*${RUN}([[:space:]]|\`|\$)" \
+  "(<|\\$)\\([[:space:]]*${FETCH}[[:space:]]" \
+  "iex[[:space:]]*\\([[:space:]]*${FETCH}[[:space:]]" \
+  "${FETCH}[[:space:]][^\`]*(-[A-Za-z]*[oO]|--output|-OutFile)[[:space:]][^\`]*(&&|;)[[:space:]]*(${RUN}[[:space:]]|\\./|&)"; do
+  hits=$(grep_md "$pattern" $MD)
+  [ -z "$hits" ] || fail "downloaded code run straight away; run the bundled installer instead:
 $hits"
-fi
+done
 ok "no download-and-run"
 
 # allowed-tools runs what it names without asking the user, and the directory
 # refuses anything beyond these from an organization it has not Verified.
 for f in commands/*.md agents/*.md skills/*/SKILL.md; do
-  line=$(awk '/^---$/{n++; next} n==1' "$f" | grep -E '^allowed-tools:' || true)
+  line=$(frontmatter "$f" | grep -E '^allowed-tools:' || true)
   [ -n "$line" ] || continue
   tools=${line#allowed-tools:}
   [ -n "${tools// /}" ] || fail "$f: allowed-tools as a YAML list is not checked here; write it on one line"
@@ -79,10 +99,10 @@ ok "allowed-tools is read-only"
 
 # A !`…` span runs before Claude sees the file, and aborts the command outside
 # auto mode unless allowed-tools pre-approves it, which the check above forbids.
-if hits=$(grep -rnE '(^|[[:space:]])!`|^```!' --include='*.md' commands skills); then
-  fail "inline shell span; tell Claude to run the command instead:
+# Claude Code only recognises one at the start of a line or after whitespace.
+hits=$(grep_md '(^|[[:space:]])!`|^```!' $MD)
+[ -z "$hits" ] || fail "inline shell span; tell Claude to run the command instead:
 $hits"
-fi
 ok "no inline shell spans"
 
 # The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB.

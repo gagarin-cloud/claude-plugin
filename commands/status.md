@@ -1,7 +1,6 @@
 ---
 description: Show what is actually running in a Gagarin Cloud project — desired vs actual state, addresses, sizes and today's cost.
 argument-hint: [project]
-allowed-tools: Read
 ---
 
 Report the state of the user's Gagarin Cloud project.

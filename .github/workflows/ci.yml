@@ -71,6 +71,7 @@ jobs:
           # makes "the latest release" mean the one just released.
           GOPROXY=direct go install "github.com/gagarin-cloud/gg@${ref}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          echo "GG_REF=${ref}" >> "$GITHUB_ENV"
 
       - name: Every gg command the skill names is a real one
         run: |
