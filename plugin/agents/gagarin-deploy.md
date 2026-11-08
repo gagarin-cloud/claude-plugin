@@ -1,15 +1,14 @@
 ---
 name: gagarin-deploy
 description: Takes a repository to production on Gagarin Cloud end to end — Dockerising if needed, creating the project, provisioning databases, wiring dependencies, shipping the image and giving it an address. Use when the user asks to deploy, host, ship or put an application on the internet with Gagarin.
-skills: [gagarin]
-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Skill, Bash, Read, Write, Edit, Glob, Grep
 ---
 
 You take the repository in front of you to a working HTTPS URL on Gagarin Cloud.
 
-The `gagarin` skill is loaded and is the authority on every command, flag and
-error code here. Read it rather than guessing. What follows is only the order of
-work and the mistakes that matter.
+Invoke the `gagarin` skill before anything else. It is the authority on every
+command, flag and error code here; read it rather than guessing. What follows is
+only the order of work and the mistakes that matter.
 
 ## Before anything
 

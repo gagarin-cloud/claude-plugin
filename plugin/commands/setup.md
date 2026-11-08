@@ -7,7 +7,7 @@ the first step that needs them.
 
 ## 1. Is `gg` already here?
 
-Run `command -v gg`. If it finds nothing, look where the install script puts it:
+Run `command -v gg`. If it finds nothing, look where the installer puts it:
 `~/.local/bin/gg` (Windows: `%LOCALAPPDATA%\Programs\gg\gg.exe`). If either is
 there, run `gg version` (by its full path if it is not on `PATH`) and skip to
 step 3. If it is installed but not on `PATH`, give the user the same `PATH`
@@ -15,45 +15,35 @@ advice as step 2 does.
 
 ## 2. Install it
 
-Run the install script that ships with this plugin. It checks the download
-against the release's `checksums.txt`, puts `gg` in `~/.local/bin` without
-`sudo`, and never edits a shell profile.
-
-- macOS or Linux: `sh "${CLAUDE_PLUGIN_ROOT}/skills/gagarin/scripts/install.sh"`
-- Windows (PowerShell): `powershell -File "${CLAUDE_PLUGIN_ROOT}/skills/gagarin/scripts/install.ps1"`
-  — if execution policy blocks it, add `-ExecutionPolicy Bypass` for that one run
-
-If `${CLAUDE_PLUGIN_ROOT}` was not filled in, use the directory this plugin is
-installed in. Do not fall back to downloading a script from the internet.
-
-On Windows it installs to `%LOCALAPPDATA%\Programs\gg` and adds that to the
-user's `PATH`. `GAGARIN_INSTALL_DIR` changes the directory and
-`GAGARIN_INSTALL_VERSION` pins a version.
-
-If `~/.local/bin` is not on `PATH`, the script prints the `export` line to add.
-Call `gg` by its full path (`~/.local/bin/gg`) for the rest of this session and
-tell the user the line; do not edit their shell configuration yourself.
-
-Prefer a package manager? Any of these works too:
+Use a package manager the machine already has. `command -v brew winget scoop go`
+says which. You may run these yourself:
 
 - macOS: `brew install --cask gagarin-cloud/tap/gg` (macOS only — casks do not
   work on Linux)
-- Windows: `scoop bucket add gagarin https://github.com/gagarin-cloud/scoop-bucket`
-  then `scoop install gagarin/gg`, or `winget install Gagarin.gg`
+- Windows: `winget install Gagarin.gg`, or `scoop bucket add gagarin
+  https://github.com/gagarin-cloud/scoop-bucket` then `scoop install gagarin/gg`
 - any platform with a Go toolchain: `go install github.com/gagarin-cloud/gg@latest`
-- Linux: a `.deb`, `.rpm` or `.apk` from
-  https://github.com/gagarin-cloud/gg/releases (installing it needs `sudo`, so
-  hand the command to the user)
 
 Homebrew installs it as a **cask**, not a formula. If they already have a formula
 `gg` (`brew list gg` finds it and `brew list --cask gg` does not), tell them to
 `brew uninstall gg` once and then install the cask.
 
 If `go install` succeeds but the shell still cannot find `gg`, its bin directory
-(`go env GOPATH`/bin) is not on `PATH`. Same rule: say so and let them fix their
-profile.
+(`go env GOPATH`/bin) is not on `PATH`. Say so and let them fix their profile.
 
-Do not download from a host you guessed.
+With none of those, the install is the user's to run, not yours. **Do not download
+a script or a binary and run it**, from gagarin.cloud or anywhere else. Point them
+at the one-line installer on https://gagarin.cloud — a shell one-liner on macOS
+and Linux, a PowerShell one on Windows — and tell them what it does: it checks the
+download against the release's `checksums.txt`, installs to `~/.local/bin`
+(Windows: `%LOCALAPPDATA%\Programs\gg`, added to their `PATH`) without `sudo`,
+and never edits a shell profile. On Linux a `.deb`, `.rpm` or `.apk` from
+https://github.com/gagarin-cloud/gg/releases also works; it needs `sudo`, so
+that too is theirs to run. Wait until they say it is done, then go back to step 1.
+
+If `~/.local/bin` is not on `PATH`, the installer prints the `export` line to add.
+Call `gg` by its full path (`~/.local/bin/gg`) for the rest of this session and
+tell the user the line; do not edit their shell configuration yourself.
 
 ## 3. Sign in
 
@@ -79,10 +69,11 @@ script or archive install replaces itself after checking the checksum, and a
 `gg upgrade --dry-run` previews it first.
 
 `gg upgrade` exists from v0.54.0. If theirs is older it will say the command is
-unknown: re-run the install script from step 2, or use the old per-manager
-command (`brew upgrade --cask gagarin-cloud/tap/gg`, `scoop update gg`,
-`winget upgrade Gagarin.gg`, or `go install ...@latest`). Do this rather than
-letting an agent meet a refusal later and conclude the command does not exist.
+unknown: use the per-manager command (`brew upgrade --cask gagarin-cloud/tap/gg`,
+`scoop update gg`, `winget upgrade Gagarin.gg`, or `go install ...@latest`), or,
+for an installer or archive install, have them run the installer again as step 2
+says. Do this rather than letting an agent meet a refusal later and conclude the
+command does not exist.
 
 ## 5. Check the rest of the toolchain
 

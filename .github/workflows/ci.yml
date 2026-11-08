@@ -22,10 +22,14 @@ jobs:
         with:
           node-version: "24"
 
+      # The repository root is the marketplace; plugin/ is what the directory
+      # reads and what people install. --strict on the plugin alone, because
+      # that is the run the directory portal mirrors.
       - name: claude plugin validate
         run: |
           npm install -g @anthropic-ai/claude-code
           claude plugin validate .
+          claude plugin validate ./plugin --strict
 
       - name: Manifests and skill frontmatter
         run: ./scripts/check.sh
@@ -77,6 +81,3 @@ jobs:
         run: |
           gg version
           ./scripts/check-skill-against-gg.sh
-
-      - name: The bundled installers are gg's latest
-        run: ./scripts/check-installers-against-gg.sh
