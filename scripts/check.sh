@@ -167,10 +167,15 @@ extra=$( (grep -vxE 'IHDR|PLTE|tRNS|IDAT|IEND' <<< "$chunks" || true) | sort -u 
 [ -z "$extra" ] || fail "icon carries metadata chunks ($extra); strip them"
 ok "icon ${w}x${h}"
 
+# The listing needs a privacy policy, and a README line with "privacy" and a
+# link is enough. The plugin.json fields for it draw an "unrecognized field"
+# warning from the directory, so keep them out.
 for k in privacyPolicyUrl termsOfServiceUrl; do
-  jq -e --arg k "$k" '.[$k] | type == "string" and startswith("https://")' "$PLUGIN" >/dev/null \
-    || fail "plugin.json $k must be an https:// URL"
+  jq -e --arg k "$k" 'has($k) | not' "$PLUGIN" >/dev/null \
+    || fail "plugin.json sets $k; link it from the README instead"
 done
-ok "privacy and terms links"
+grep -iE 'privacy' README.md | grep -qE '\]\(https://' \
+  || fail "README.md needs a line that says privacy and links the policy"
+ok "privacy policy linked from the README"
 
 echo "All checks passed."

@@ -10,8 +10,6 @@
   "homepage": "https://gagarin.cloud",
   "repository": "https://github.com/gagarin-cloud/claude-plugin",
   "license": "MIT",
-  "privacyPolicyUrl": "https://gagarin.cloud/privacy",
-  "termsOfServiceUrl": "https://gagarin.cloud/terms",
   "keywords": [
     "deploy",
     "paas",
