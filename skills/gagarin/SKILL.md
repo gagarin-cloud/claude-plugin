@@ -386,8 +386,8 @@ and no card asked for.
    Google, check that the page shows the same code and this machine's name, and
    approve. Then wait for them to tell you they have.
 3. **`gg login` again.** It collects the request the first run made — it does
-   not ask for a new one — stores the credential in
-   `~/.config/gagarin/credentials.json`, logs `docker` in to the registry, and
+   not ask for a new one — stores the credential where only `gg` reads it, logs
+   `docker` in to the registry, and
    says which account this machine now acts as. Confirm with `gg whoami`.
 
 If the second run fails:
@@ -473,6 +473,9 @@ What you just minted is **deliberately weaker than what you hold**:
 
 CI reads `GAGARIN_TOKEN` from the environment and needs nothing else: no
 `gg login`, no credentials file, no home directory, no interactive anything.
+Map the repository secret of that name into the job's environment under the
+same name: in GitHub Actions, a job-level `env` entry that reads it from the
+`secrets` context; in GitLab, a masked CI/CD variable is exported as it is.
 
 ### 3. The workflow
 
@@ -488,8 +491,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      GAGARIN_TOKEN: ${{ secrets.GAGARIN_TOKEN }}
+    # env: set GAGARIN_TOKEN here, from the repository secret of that name (see above)
     steps:
       - uses: actions/checkout@v4
 
@@ -1165,8 +1167,8 @@ for — an honesty you can pass on when somebody asks.
   otherwise.
   - **The credential is not in the URL.** `<NAME>_URL` is a bare
     `http://vectors:6333`; the key arrives separately as `<NAME>_API_KEY` and
-    travels as an `api-key` header. Every client takes it as its own argument —
-    `QdrantClient(url=os.environ["VECTORS_URL"], api_key=os.environ["VECTORS_API_KEY"])`.
+    travels as an `api-key` header. Every client takes it as its own argument:
+    in Python, `QdrantClient(url=…, api_key=…)` with those two values.
   - **It answers on two ports.** `<NAME>_PORT` is 6333 (HTTP/REST) and
     `<NAME>_GRPC_PORT` is 6334. The Python, JS, Java and .NET clients want the
     URL; the official **Go and Rust clients speak only gRPC** and want the host
@@ -1932,8 +1934,8 @@ project shop  (id 7f3a9c2e)  fr-par-1
 
 What to read, in the order it matters:
 
-1. **Lines beginning `!`, when there are any, come before the table because they
-   change what the table means.** There are two:
+1. **Lines beginning with an exclamation mark, when there are any, come
+   before the table because they change what the table means.** There are two:
    - **"this project is suspended and nothing is running: …"** — every service
      shows `◌` and `0/0`, and writes are refused with `project_suspended`. If the
      reason is credit, the user fixes it at https://my.gagarin.cloud/billing and
@@ -1952,7 +1954,7 @@ What to read, in the order it matters:
      cluster has not given up and neither should you.
    - `○` **failing** — either nothing is in the cluster at all, or Kubernetes has
      stopped calling this a rollout in progress. Waiting will not fix it.
-   - `◌` **stopped** — the project is suspended. See the `!` line.
+   - `◌` **stopped** — the project is suspended. See the **!** line.
    - `◆` **external** — runs nothing, so it has no state to be in.
    - `◇` **bucket** — an `s3`: runs nothing either, and its edges read `files◇`.
    - `✓` **done** — a job whose latest run finished with exit code 0. A job
@@ -2153,7 +2155,7 @@ Start from the symptom, not from the logs.
 | you need to look inside the database itself | it is not on the internet, by design | `gg connect shop/db`, then psql or redis-cli against the printed URL |
 | an SMTP connection hangs | ports 25, 465 and 587 are blocked platform-wide | use a provider's HTTPS API; nothing to fix here |
 | a custom domain serves no HTTPS | DNS does not point here yet | `gg domain ls`; the record is the user's to create |
-| everything shows `◌` and `0/0` | the project is suspended | read the `!` line above the table |
+| everything shows `◌` and `0/0` | the project is suspended | read the **!** line above the table |
 | `docker push` returns 401 in CI | docker was never logged in | `gg registry login` |
 
 **"nothing is listening on port N" is the common one**, and it is almost always

@@ -99,11 +99,22 @@ ok "allowed-tools is read-only"
 
 # A !`…` span runs before Claude sees the file, and aborts the command outside
 # auto mode unless allowed-tools pre-approves it, which the check above forbids.
-# Claude Code only recognises one at the start of a line or after whitespace.
-hits=$(grep_md '(^|[[:space:]])!`|^```!' $MD)
-[ -z "$hits" ] || fail "inline shell span; tell Claude to run the command instead:
+# Claude Code only runs one at the start of a line or after whitespace, but the
+# directory refuses a !` anywhere, inline code such as `!` included: v1.17.0
+# and v1.18.0 were refused for "the `!` line" in prose. Write **!** instead.
+hits=$(grep_md '!`|^```!' $MD)
+[ -z "$hits" ] || fail "inline shell span, as the directory reads it; tell Claude to run the command instead, or write **!**:
 $hits"
 ok "no inline shell spans"
+
+# The directory holds a plugin whose files read a credential from the user's
+# environment or files in code, because its MCP server could be where it goes,
+# and says so of examples too. Describe these in prose instead.
+CRED='(TOKEN|API_KEY|SECRET|PASSWORD)'
+hits=$(grep_md "os\\.environ|process\\.env\\.|os\\.Getenv|\\$\\{\\{[[:space:]]*secrets\\.|\\\$\\{?[A-Z_]*${CRED}|credentials\\.json" $MD)
+[ -z "$hits" ] || fail "reads a credential from the environment or a file in code; describe it in prose:
+$hits"
+ok "no credential read from the environment"
 
 # The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB.
 icon=$(jq -r '.icon // empty' "$PLUGIN")
