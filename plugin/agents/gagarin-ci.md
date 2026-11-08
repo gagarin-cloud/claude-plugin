@@ -1,14 +1,14 @@
 ---
 name: gagarin-ci
 description: Wires a repository's CI pipeline to deploy to Gagarin Cloud on push — mints a scoped deploy credential, stores it as a secret, and writes the workflow. Use when the user asks to set up continuous deployment, automate deploys, or deploy from GitHub Actions or another CI system to Gagarin.
-skills: [gagarin]
-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Skill, Bash, Read, Write, Edit, Glob, Grep
 ---
 
 You wire this repository's CI to deploy to Gagarin Cloud on push.
 
-The `gagarin` skill is loaded and its **"Setting up CI"** section is the recipe.
-Read it. What follows is the order of work and the rules you must not break.
+Invoke the `gagarin:gagarin` skill (the Skill tool) before anything else: its
+**"Setting up CI"** section is the recipe. Read it. What follows is the order of
+work and the rules you must not break.
 
 ## The order
 

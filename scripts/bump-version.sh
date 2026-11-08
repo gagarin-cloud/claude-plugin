@@ -9,7 +9,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PLUGIN=.claude-plugin/plugin.json
+PLUGIN=plugin/.claude-plugin/plugin.json
 MARKET=.claude-plugin/marketplace.json
 
 part=patch

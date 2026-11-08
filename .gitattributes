@@ -1,3 +1,3 @@
 # The skill is prose, and a whole-file diff of 1500 lines is noise in a review
 # that is usually a paragraph. Ask for it explicitly when you want it.
-skills/gagarin/SKILL.md -diff
+plugin/skills/gagarin/SKILL.md -diff

@@ -7,10 +7,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PLUGIN=.claude-plugin/plugin.json
+# The repository root is the marketplace; ROOT is the plugin folder it lists,
+# which is what the directory reads and what people install.
+ROOT=plugin
+PLUGIN=$ROOT/.claude-plugin/plugin.json
 MARKET=.claude-plugin/marketplace.json
-MCP=.mcp.json
-SKILL=skills/gagarin/SKILL.md
+MCP=$ROOT/.mcp.json
+SKILL=$ROOT/skills/gagarin/SKILL.md
 ENDPOINT="https://mcp.gagarin.cloud/mcp"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -46,6 +49,8 @@ ok "version $pv is strict semver"
 
 # A marketplace entry disagreeing with the plugin advertises a version nobody gets.
 [ "$pv" = "$mv" ] || fail "version mismatch: plugin.json=$pv marketplace.json=$mv"
+src=$(jq -r '.plugins[] | select(.name=="gagarin") | .source' "$MARKET")
+[ "$src" = "./$ROOT" ] || fail "marketplace.json source is '$src', not './$ROOT'"
 ok "marketplace.json agrees"
 
 # The endpoint is the one thing a user cannot override; assert it verbatim.
@@ -61,12 +66,59 @@ ok "skill frontmatter"
 
 # What follows is Anthropic's directory review, run here so a finding it cleared
 # cannot come back unnoticed. Its checks are not public; these are the ones it
-# raised on our first submission.
+# raised on our submissions.
 
-# Anything Claude is told to run must be a file that shipped with the plugin, not
-# one fetched and piped into a shell: what runs then is not what was reviewed.
-# The README may say it, for humans; commands, agents and the skill may not.
-MD="commands agents skills"
+# The directory accepts scripts and programs only from organizations it has
+# Verified, and there is no way to ask to become one. So the plugin folder holds
+# Markdown, text, JSON, YAML and images, nothing starting with "#!", and the
+# repository's own tooling lives outside it (scripts/, .github/).
+while IFS= read -r f; do
+  case "$f" in
+    *.md|*.txt|*.json|*.yml|*.yaml|*/LICENSE|*/NOTICE|*/CHANGELOG|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico) ;;
+    *) fail "$f: the directory accepts only Markdown, text, JSON, YAML and images in the plugin folder" ;;
+  esac
+  case "$f" in
+    *.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico) continue ;;
+  esac
+  [ "$(head -c 2 "$f")" != "#!" ] || fail "$f: starts with #!; the directory refuses scripts"
+  iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1 || fail "$f: not UTF-8"
+  # A NUL cannot survive a shell variable, so count them instead of grepping.
+  [ "$(LC_ALL=C tr -cd '\0' < "$f" | wc -c)" -eq 0 ] || fail "$f: holds a NUL byte"
+done < <(git ls-files --cached --others --exclude-standard "$ROOT")
+ok "plugin folder holds only text and images"
+
+# The plugin folder ships its own copy of the license, so the directory and an
+# installed plugin see one; keep it the same file as the repository's.
+cmp -s LICENSE "$ROOT/LICENSE" || fail "$ROOT/LICENSE differs from LICENSE; copy it over"
+ok "license copy agrees"
+
+# Likewise, a frontmatter key the directory does not know is refused outright.
+# Its list is not public; this is the Claude Code reference's set less what hands
+# a component more power than text (hooks, mcpServers, permissionMode, skills…).
+# Loosen it only when a re-validation has shown the key is accepted.
+frontmatter_keys() { frontmatter "$1" | grep -oE '^[A-Za-z_][A-Za-z0-9_-]*:' | tr -d :; }
+check_keys() {
+  local kind=$1 allowed=$2 f k
+  shift 2
+  for f in "$@"; do
+    for k in $(frontmatter_keys "$f"); do
+      case " $allowed " in
+        *" $k "*) ;;
+        *) fail "$f: frontmatter key '$k' is not one the directory accepts in $kind frontmatter ($allowed)" ;;
+      esac
+    done
+  done
+}
+check_keys command "description argument-hint allowed-tools model" $ROOT/commands/*.md
+check_keys agent   "name description tools model color"            $ROOT/agents/*.md
+check_keys skill   "name description allowed-tools"                $ROOT/skills/*/SKILL.md
+ok "frontmatter keys"
+
+# Anything Claude is told to run must be a tool the user already has, never
+# something fetched and piped into a shell: what runs then is not what was
+# reviewed. The README may say it, for humans; commands, agents and the skill
+# may not.
+MD="$ROOT/commands $ROOT/agents $ROOT/skills"
 FETCH='(curl|wget|irm|iwr|Invoke-RestMethod|Invoke-WebRequest)'
 RUN='(sudo[[:space:]]+)?(sh|bash|zsh|dash|iex|pwsh|powershell|python3?|node|perl|ruby)'
 for pattern in \
@@ -75,14 +127,14 @@ for pattern in \
   "iex[[:space:]]*\\([[:space:]]*${FETCH}[[:space:]]" \
   "${FETCH}[[:space:]][^\`]*(-[A-Za-z]*[oO]|--output|-OutFile)[[:space:]][^\`]*(&&|;)[[:space:]]*(${RUN}[[:space:]]|\\./|&)"; do
   hits=$(grep_md "$pattern" $MD)
-  [ -z "$hits" ] || fail "downloaded code run straight away; run the bundled installer instead:
+  [ -z "$hits" ] || fail "downloaded code run straight away; use a package manager or hand the one-liner to the user:
 $hits"
 done
 ok "no download-and-run"
 
 # allowed-tools runs what it names without asking the user, and the directory
 # refuses anything beyond these from an organization it has not Verified.
-for f in commands/*.md agents/*.md skills/*/SKILL.md; do
+for f in $ROOT/commands/*.md $ROOT/agents/*.md $ROOT/skills/*/SKILL.md; do
   line=$(frontmatter "$f" | grep -E '^allowed-tools:' || true)
   [ -n "$line" ] || continue
   tools=${line#allowed-tools:}
@@ -108,6 +160,7 @@ ok "no inline shell spans"
 # The listing icon: a square PNG, 512 to 2048 px a side, under 2 MB.
 icon=$(jq -r '.icon // empty' "$PLUGIN")
 [ -n "$icon" ] || fail "plugin.json has no icon"
+icon=$ROOT/${icon#./}
 [ -f "$icon" ] || fail "icon $icon does not exist"
 [ "$(od -An -tx1 -N8 "$icon" | tr -d ' \n')" = "89504e470d0a1a0a" ] || fail "icon $icon is not a PNG"
 # Width and height are the IHDR's first two big-endian words, bytes 16 to 23.

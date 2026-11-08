@@ -19,7 +19,7 @@ import re
 import subprocess
 import sys
 
-SKILL = "skills/gagarin/SKILL.md"
+SKILL = "plugin/skills/gagarin/SKILL.md"
 WORD = re.compile(r"^[a-z][a-z-]*$")
 # A workflow step names its command after `run:` — `- run: gg status acme`.
 RUN = re.compile(r"^(?:-\s*)?run:\s*")
