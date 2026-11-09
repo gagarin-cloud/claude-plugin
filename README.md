@@ -1,5 +1,15 @@
 # gagarin-cloud/claude-plugin
 
+> **Moved.** Since 2026-11-09 the plugin lives in
+> [gagarin-cloud/plugin](https://github.com/gagarin-cloud/plugin), where the
+> same folder also serves Codex and ChatGPT. This repository still installs but
+> is no longer updated:
+>
+> ```
+> /plugin marketplace add gagarin-cloud/plugin
+> /plugin install gagarin@gagarin-cloud
+> ```
+
 The [Gagarin](https://gagarin.cloud) plugin for Claude Code, and the marketplace
 that serves it. The plugin itself is in [`plugin/`](plugin/), and its
 [README](plugin/README.md) is the one for users: what it gives you, how to
